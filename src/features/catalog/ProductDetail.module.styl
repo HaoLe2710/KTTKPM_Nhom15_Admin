@@ -1,0 +1,363 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+.breadcrumbs {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.breadcrumbActive {
+  color: #fff;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 80px; /* Massive! */
+  line-height: 1;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-shadow: 2px 2px 0px rgba(141, 241, 121, 0.4);
+  letter-spacing: -2px;
+  transform: scaleY(1.2); /* Slight blocky vertical stretch for that retro arcade feel */
+  transform-origin: bottom left;
+}
+
+.actions {
+  display: flex;
+  gap: 16px;
+}
+
+.discardBtn {
+  background: black;
+  color: #ff5555;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: bold;
+  border: 4px solid #ff5555 !important;
+  padding: 16px 32px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.discardBtn:hover {
+  background: #ff5555;
+  color: black;
+}
+
+.commitBtn {
+  color: black;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: bold;
+  padding: 16px 32px;
+  border: none !important;
+  cursor: pointer;
+}
+
+.commitBtn:hover {
+  filter: brightness(1.2);
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+}
+
+/* Left Column Containers */
+.leftCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.terminalBox {
+  border: 4px solid var(--ghost-border);
+  padding: 32px;
+  position: relative;
+  background: var(--color-surface);
+}
+
+.badgeTag {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  transform: translateY(-50%);
+  background: var(--ghost-border);
+  color: black;
+  font-size: 9px;
+  padding: 4px 8px;
+  font-weight: bold;
+}
+
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #00ffff; /* Cyan headings for fields */
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.input {
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--ghost-border);
+  color: var(--color-foreground);
+  padding: 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.input:focus {
+  border: 1px solid var(--color-primary);
+  outline: none;
+}
+
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.inputPrefix {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.prefixSpan {
+  position: absolute;
+  left: 16px;
+  color: var(--color-muted-foreground);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.inputWithPrefix {
+  padding-left: 70px;
+}
+
+/* Variant Buffer */
+.variantHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.variantTitle {
+  font-size: 24px;
+  color: var(--color-accent-pink);
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(255, 90, 249, 0.5);
+}
+
+.addVariantBtn {
+  background: #00ffff;
+  color: black;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 8px 16px;
+  border: none !important;
+  cursor: pointer;
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.2) 2px,
+    rgba(0, 0, 0, 0.2) 4px
+  );
+}
+
+.addVariantBtn:hover {
+  filter: brightness(1.2);
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 1.5fr 1fr;
+  font-size: 10px;
+  color: var(--color-muted-foreground);
+  border-bottom: 1px solid var(--ghost-border);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 1.5fr 1fr;
+  align-items: center;
+  font-size: 11px;
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--ghost-border);
+}
+
+.tableRow:last-child {
+  border-bottom: none;
+}
+
+.skuValue {
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+/* Right Column - Visual Assets */
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.visualHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.visualTitle {
+  font-size: 20px;
+  color: var(--color-accent-pink);
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.uploadBtn {
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 9px;
+  font-weight: bold;
+  padding: 8px 12px;
+  border: 1px solid var(--color-primary) !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.renderContainer {
+  aspect-ratio: 1;
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--ghost-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.renderText {
+  font-size: 40px;
+  color: #333;
+  text-align: center;
+  line-height: 1.2;
+  border: 2px solid #333;
+  padding: 16px;
+  z-index: 10;
+}
+
+.exeBadge {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  background: black;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  padding: 6px 12px;
+  font-size: 9px;
+  font-weight: bold;
+  z-index: 20;
+}
+
+.thumbnailGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.thumbBox {
+  aspect-ratio: 1;
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--ghost-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.thumbBox.active {
+  border: 2px solid var(--color-primary);
+}
+
+.thumbIcon {
+  width: 40%;
+  height: 40%;
+  background: #333;
+}
+
+/* Metadata Block */
+.metaBox {
+  border: 4px solid var(--ghost-border);
+  padding: 24px;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 9px;
+  color: var(--color-muted-foreground);
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.metaValuePink {
+  color: var(--color-accent-pink);
+}
+
+/* Force Vite HMR Recompile */
