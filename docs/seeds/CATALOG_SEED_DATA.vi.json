@@ -1,0 +1,172 @@
+﻿{
+  "version": "2026-05-11",
+  "note": "Du lieu seed catalog my pham de BE import vao DB hoac goi API admin de tao du lieu",
+  "productTypes": [
+    { "code": "sua-rua-mat", "name": "Sá»¯a rá»­a máº·t" },
+    { "code": "serum", "name": "Serum" },
+    { "code": "kem-duong", "name": "Kem dÆ°á»¡ng" },
+    { "code": "chong-nang", "name": "Kem chá»‘ng náº¯ng" },
+    { "code": "toner", "name": "Toner" }
+  ],
+  "brands": [
+    { "code": "cerave", "name": "CeraVe", "slug": "cerave", "description": "Dermatology skincare brand", "isActive": true },
+    { "code": "larocheposay", "name": "La Roche-Posay", "slug": "la-roche-posay", "description": "Dermatology skincare brand", "isActive": true },
+    { "code": "bioderma", "name": "Bioderma", "slug": "bioderma", "description": "French dermo-cosmetic brand", "isActive": true },
+    { "code": "eucerin", "name": "Eucerin", "slug": "eucerin", "description": "Clinical skincare brand", "isActive": true },
+    { "code": "vichy", "name": "Vichy", "slug": "vichy", "description": "Mineral-based skincare brand", "isActive": true }
+  ],
+  "ingredients": [
+    { "code": "niacinamide", "name": "Niacinamide", "normalizedName": "niacinamide", "inciName": "Niacinamide", "description": "Há»— trá»£ lÃ m sÃ¡ng da, giáº£m dáº§u", "isActive": true },
+    { "code": "hyaluronic-acid", "name": "Hyaluronic Acid", "normalizedName": "hyaluronic acid", "inciName": "Sodium Hyaluronate", "description": "Cáº¥p nÆ°á»›c vÃ  giá»¯ áº©m", "isActive": true },
+    { "code": "ceramide", "name": "Ceramide", "normalizedName": "ceramide", "inciName": "Ceramide NP", "description": "Phá»¥c há»“i hÃ ng rÃ o báº£o vá»‡ da", "isActive": true },
+    { "code": "salicylic-acid", "name": "Salicylic Acid", "normalizedName": "salicylic acid", "inciName": "Salicylic Acid", "description": "LÃ m sáº¡ch lá»— chÃ¢n lÃ´ng", "isActive": true },
+    { "code": "panthenol", "name": "Panthenol (B5)", "normalizedName": "panthenol", "inciName": "Panthenol", "description": "LÃ m dá»‹u vÃ  phá»¥c há»“i da", "isActive": true },
+    { "code": "glycerin", "name": "Glycerin", "normalizedName": "glycerin", "inciName": "Glycerin", "description": "DÆ°á»¡ng áº©m ná»n", "isActive": true },
+    { "code": "madecassoside", "name": "Madecassoside", "normalizedName": "madecassoside", "inciName": "Madecassoside", "description": "LÃ m dá»‹u da nháº¡y cáº£m", "isActive": true },
+    { "code": "zinc-pca", "name": "Zinc PCA", "normalizedName": "zinc pca", "inciName": "Zinc PCA", "description": "Giáº£m bÃ£ nhá»n", "isActive": true }
+  ],
+  "skinTypes": [
+    { "code": "da-dau", "name": "Da dáº§u", "description": "Da tiáº¿t nhiá»u bÃ£ nhá»n", "isActive": true },
+    { "code": "da-kho", "name": "Da khÃ´", "description": "Da thiáº¿u áº©m", "isActive": true },
+    { "code": "da-hon-hop", "name": "Da há»—n há»£p", "description": "Da káº¿t há»£p dáº§u vÃ  khÃ´", "isActive": true },
+    { "code": "da-nhay-cam", "name": "Da nháº¡y cáº£m", "description": "Da dá»… kÃ­ch á»©ng", "isActive": true },
+    { "code": "da-thuong", "name": "Da thÆ°á»ng", "description": "Da á»•n Ä‘á»‹nh", "isActive": true }
+  ],
+  "concerns": [
+    { "code": "mun", "name": "Má»¥n", "description": "Da dá»… ná»•i má»¥n", "isActive": true },
+    { "code": "tham-sam", "name": "ThÃ¢m sáº¡m", "description": "Da khÃ´ng Ä‘á»u mÃ u", "isActive": true },
+    { "code": "lao-hoa", "name": "LÃ£o hÃ³a", "description": "Náº¿p nhÄƒn vÃ  Ä‘Ã n há»“i", "isActive": true },
+    { "code": "mat-nuoc", "name": "Máº¥t nÆ°á»›c", "description": "Da thiáº¿u nÆ°á»›c", "isActive": true },
+    { "code": "kich-ung", "name": "KÃ­ch á»©ng", "description": "Da Ä‘ang tá»•n thÆ°Æ¡ng", "isActive": true }
+  ],
+  "tags": [
+    { "code": "ban-chay", "name": "BÃ¡n cháº¡y", "description": "Top doanh sá»‘", "isActive": true },
+    { "code": "san-pham-moi", "name": "Sáº£n pháº©m má»›i", "description": "Má»›i ra máº¯t", "isActive": true },
+    { "code": "khong-con", "name": "KhÃ´ng cá»“n", "description": "Alcohol-free", "isActive": true },
+    { "code": "khong-huong-lieu", "name": "KhÃ´ng hÆ°Æ¡ng liá»‡u", "description": "Fragrance-free", "isActive": true },
+    { "code": "thuáº§n-chay", "name": "Thuáº§n chay", "description": "Vegan-friendly", "isActive": true }
+  ],
+  "options": [
+    {
+      "code": "container_type",
+      "name": "Dáº¡ng bao bÃ¬",
+      "isActive": true,
+      "values": [
+        { "value": "Chai", "sortOrder": 0, "isActive": true },
+        { "value": "Lá»", "sortOrder": 1, "isActive": true },
+        { "value": "TuÃ½p", "sortOrder": 2, "isActive": true },
+        { "value": "HÅ©", "sortOrder": 3, "isActive": true }
+      ]
+    },
+    {
+      "code": "volume",
+      "name": "Dung tÃ­ch",
+      "isActive": true,
+      "values": [
+        { "value": "30ml", "sortOrder": 0, "isActive": true },
+        { "value": "50ml", "sortOrder": 1, "isActive": true },
+        { "value": "100ml", "sortOrder": 2, "isActive": true },
+        { "value": "150ml", "sortOrder": 3, "isActive": true }
+      ]
+    },
+    {
+      "code": "usage_time",
+      "name": "Thá»i Ä‘iá»ƒm sá»­ dá»¥ng",
+      "isActive": true,
+      "values": [
+        { "value": "SÃ¡ng", "sortOrder": 0, "isActive": true },
+        { "value": "Tá»‘i", "sortOrder": 1, "isActive": true },
+        { "value": "SÃ¡ng/Tá»‘i", "sortOrder": 2, "isActive": true }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "typeCode": "sua-rua-mat",
+      "brandCode": "cerave",
+      "name": "Hydrating Facial Cleanser",
+      "slug": "hydating-facial-cleanser-cerave",
+      "shortDescription": "Sá»¯a rá»­a máº·t dá»‹u nháº¹ giÃºp lÃ m sáº¡ch vÃ  duy trÃ¬ Ä‘á»™ áº©m da.",
+      "descriptionMd": "Sáº£n pháº©m lÃ m sáº¡ch phÃ¹ há»£p da thÆ°á»ng Ä‘áº¿n da khÃ´, chá»©a Ceramide vÃ  Hyaluronic Acid.",
+      "isCustomizable": false,
+      "isActive": true,
+      "ingredientCodes": ["ceramide", "hyaluronic-acid", "glycerin"],
+      "skinTypeCodes": ["da-kho", "da-thuong", "da-nhay-cam"],
+      "concernCodes": ["mat-nuoc", "kich-ung"],
+      "tagCodes": ["ban-chay", "khong-huong-lieu"],
+      "variants": [
+        { "sku": "CERA-SUAR-HYDR-VOL-001", "price": 289000, "stockQuantity": 120, "isActive": true, "options": [{ "optionCode": "volume", "value": "236ml" }] },
+        { "sku": "CERA-SUAR-HYDR-VOL-002", "price": 389000, "stockQuantity": 90, "isActive": true, "options": [{ "optionCode": "volume", "value": "473ml" }] }
+      ]
+    },
+    {
+      "typeCode": "serum",
+      "brandCode": "larocheposay",
+      "name": "Pure Niacinamide 10 Serum",
+      "slug": "pure-niacinamide-10-serum-la-roche-posay",
+      "shortDescription": "Serum niacinamide há»— trá»£ giáº£m thÃ¢m vÃ  Ä‘á»u mÃ u da.",
+      "descriptionMd": "CÃ´ng thá»©c niacinamide ná»“ng Ä‘á»™ cao, há»— trá»£ cáº£i thiá»‡n Ä‘á»‘m nÃ¢u vÃ  bá» máº·t da.",
+      "isCustomizable": false,
+      "isActive": true,
+      "ingredientCodes": ["niacinamide", "hyaluronic-acid"],
+      "skinTypeCodes": ["da-dau", "da-hon-hop", "da-nhay-cam"],
+      "concernCodes": ["tham-sam", "lao-hoa"],
+      "tagCodes": ["ban-chay", "khong-con"],
+      "variants": [
+        { "sku": "LARO-SERU-PURE-VOL-001", "price": 1290000, "stockQuantity": 70, "isActive": true, "options": [{ "optionCode": "volume", "value": "30ml" }] }
+      ]
+    },
+    {
+      "typeCode": "kem-duong",
+      "brandCode": "larocheposay",
+      "name": "Cicaplast Baume B5+",
+      "slug": "cicaplast-baume-b5-plus-la-roche-posay",
+      "shortDescription": "Kem dÆ°á»¡ng phá»¥c há»“i vÃ  lÃ m dá»‹u da kÃ­ch á»©ng.",
+      "descriptionMd": "PhÃ¹ há»£p da nháº¡y cáº£m, há»— trá»£ phá»¥c há»“i hÃ ng rÃ o báº£o vá»‡ da vá»›i Panthenol vÃ  Madecassoside.",
+      "isCustomizable": false,
+      "isActive": true,
+      "ingredientCodes": ["panthenol", "madecassoside", "glycerin"],
+      "skinTypeCodes": ["da-nhay-cam", "da-kho", "da-thuong"],
+      "concernCodes": ["kich-ung", "mat-nuoc"],
+      "tagCodes": ["ban-chay", "khong-huong-lieu"],
+      "variants": [
+        { "sku": "LARO-KEMD-CICA-VOL-001", "price": 429000, "stockQuantity": 85, "isActive": true, "options": [{ "optionCode": "volume", "value": "40ml" }] },
+        { "sku": "LARO-KEMD-CICA-VOL-002", "price": 559000, "stockQuantity": 60, "isActive": true, "options": [{ "optionCode": "volume", "value": "100ml" }] }
+      ]
+    },
+    {
+      "typeCode": "chong-nang",
+      "brandCode": "eucerin",
+      "name": "Sun Oil Control Dry Touch SPF50+",
+      "slug": "sun-oil-control-dry-touch-spf50-eucerin",
+      "shortDescription": "Kem chá»‘ng náº¯ng kiá»ƒm soÃ¡t dáº§u cho da dáº§u má»¥n.",
+      "descriptionMd": "Báº£o vá»‡ da phá»• rá»™ng UVA/UVB, bá» máº·t khÃ´ thoÃ¡ng, phÃ¹ há»£p sá»­ dá»¥ng háº±ng ngÃ y.",
+      "isCustomizable": false,
+      "isActive": true,
+      "ingredientCodes": ["niacinamide"],
+      "skinTypeCodes": ["da-dau", "da-hon-hop"],
+      "concernCodes": ["mun", "tham-sam"],
+      "tagCodes": ["ban-chay", "san-pham-moi"],
+      "variants": [
+        { "sku": "EUCE-CHON-SUNO-VOL-001", "price": 549000, "stockQuantity": 95, "isActive": true, "options": [{ "optionCode": "volume", "value": "50ml" }] }
+      ]
+    },
+    {
+      "typeCode": "toner",
+      "brandCode": "bioderma",
+      "name": "SÃ©bium Lotion",
+      "slug": "sebium-lotion-bioderma",
+      "shortDescription": "NÆ°á»›c cÃ¢n báº±ng há»— trá»£ giáº£m dáº§u vÃ  cÃ¢n báº±ng pH da.",
+      "descriptionMd": "DÃ nh cho da há»—n há»£p, da dáº§u, há»— trá»£ lÃ m má»‹n bá» máº·t da.",
+      "isCustomizable": false,
+      "isActive": true,
+      "ingredientCodes": ["zinc-pca", "glycerin"],
+      "skinTypeCodes": ["da-dau", "da-hon-hop"],
+      "concernCodes": ["mun"],
+      "tagCodes": ["khong-con"],
+      "variants": [
+        { "sku": "BIOD-TONE-SEBI-VOL-001", "price": 459000, "stockQuantity": 65, "isActive": true, "options": [{ "optionCode": "volume", "value": "200ml" }] }
+      ]
+    }
+  ]
+}
