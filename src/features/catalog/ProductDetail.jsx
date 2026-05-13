@@ -1,299 +1,468 @@
-import { useState, useEffect } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Upload, Edit2, Trash2, Image as ImageIcon } from 'lucide-react'
-import api from '../../lib/api'
-import styles from './ProductDetail.module.styl'
+import { catalogMetadataApi, productsApi, variantsApi } from '../../lib/adminCatalogApi'
+import { extractApiErrorDetails } from '../../lib/errors'
+
+const emptyForm = { typeId: '', name: '', slug: '', descriptionMd: '', shortDescription: '', brandId: '', isCustomizable: false, isActive: true, ingredientIds: [], skinTypeIds: [], concernIds: [], tagIds: [] }
+const emptyVariant = { sku: '', price: 0, stockQuantity: 0, isActive: true, options: [] }
+const toList = (res) => (Array.isArray(res) ? res : (res?.content || []))
+
+function slugify (s) {
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
+function toggleId (arr, id) { return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id] }
+function translateValidationMessage (raw) {
+  const s = String(raw || '')
+  const lower = s.toLowerCase()
+  if (lower.includes('must not be blank')) return 'không được để trống'
+  if (lower.includes('must not be null')) return 'không được để trống'
+  if (lower.includes('size must be between')) return 'độ dài không hợp lệ'
+  if (lower.includes('must be greater than or equal to 0')) return 'phải lớn hơn hoặc bằng 0'
+  return s
+}
+function translateFieldName (raw) {
+  const f = String(raw || '')
+  const map = {
+    typeId: 'Loại sản phẩm',
+    name: 'Tên sản phẩm',
+    slug: 'Slug',
+    brandId: 'Thương hiệu',
+    descriptionMd: 'Mô tả chi tiết',
+    shortDescription: 'Mô tả ngắn',
+    isCustomizable: 'Tùy biến',
+    isActive: 'Trạng thái',
+    sku: 'SKU',
+    price: 'Giá bán',
+    stockQuantity: 'Tồn kho'
+  }
+  if (map[f]) return map[f]
+  if (f.includes('variants[0].sku')) return 'SKU biến thể đầu tiên'
+  if (f.includes('variants[0].price')) return 'Giá biến thể đầu tiên'
+  if (f.includes('variants[0].stockQuantity')) return 'Tồn kho biến thể đầu tiên'
+  return f
+}
+function prettyFieldError (line) {
+  const [left, ...rest] = String(line || '').split(':')
+  if (!rest.length) return translateValidationMessage(line)
+  const field = translateFieldName(left.trim())
+  const msg = translateValidationMessage(rest.join(':').trim())
+  return `${field}: ${msg}`
+}
+function codePart (s, max = 4) {
+  const cleaned = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return cleaned.slice(0, max) || 'NA'
+}
+function buildSku ({ brandCode, typeCode, productName, optionCodes, serial }) {
+  const nameCode = codePart(slugify(productName).replace(/-/g, ''), 4)
+  const optionPart = optionCodes.length ? optionCodes.map((x) => codePart(x, 3)).join('') : 'STD'
+  const serialPart = String(serial).padStart(3, '0')
+  return `${codePart(brandCode)}-${codePart(typeCode)}-${nameCode}-${optionPart}-${serialPart}`
+}
+
+function MultiSelectChecklist ({ title, items, values, onChange }) {
+  return (
+    <div className="border border-slate-200 p-3 bg-white rounded-lg">
+      <div className="text-xs text-slate-800 font-semibold">{title}</div>
+      <div className="mb-2"></div>
+      <div className="max-h-28 overflow-auto space-y-1">
+        {items.map((it) => (
+          <label key={it.id} className="flex items-center gap-2 text-xs text-slate-700">
+            <input type="checkbox" checked={values.includes(it.id)} onChange={() => onChange(toggleId(values, it.id))} />
+            <span>{it.name} ({it.code})</span>
+          </label>
+        ))}
+        {!items.length && <div className="text-xs text-slate-500">Chưa có dữ liệu</div>}
+      </div>
+    </div>
+  )
+}
+
+function VariantEditor ({ draft, setDraft, options, optionValues, onSubmit, submitLabel, skuPreview }) {
+  const [selectedOptionId, setSelectedOptionId] = useState('')
+  const [selectedValueId, setSelectedValueId] = useState('')
+
+  const valuesForOption = optionValues.filter((v) => v.optionId === selectedOptionId)
+
+  const addOptionPair = () => {
+    if (!selectedOptionId || !selectedValueId) return
+    if (draft.options.some((x) => x.optionId === selectedOptionId)) return
+    setDraft((p) => ({ ...p, options: [...p.options, { optionId: selectedOptionId, valueId: selectedValueId }] }))
+    setSelectedOptionId('')
+    setSelectedValueId('')
+  }
+
+  const removeOptionPair = (optionId) => {
+    setDraft((p) => ({ ...p, options: p.options.filter((x) => x.optionId !== optionId) }))
+  }
+
+  const optionName = (id) => options.find((o) => o.id === id)?.name || id
+  const valueName = (id) => optionValues.find((v) => v.id === id)?.value || id
+
+  return (
+    <div className="border border-blue-200 p-3 space-y-2 bg-blue-50/40 rounded-lg">
+      <div className="text-xs font-bold text-blue-700">Thông tin biến thể</div>
+      <div>
+        <label className="block text-[11px] text-slate-600 mb-1">SKU (tự sinh)</label>
+        <input className="w-full bg-slate-100 border border-slate-300 p-2 text-xs rounded" placeholder="SKU tự sinh" value={skuPreview || ''} disabled readOnly />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-[11px] text-slate-600 mb-1">Giá bán</label>
+          <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="number" min="0" value={draft.price} onChange={(e) => setDraft((p) => ({ ...p, price: Number(e.target.value) || 0 }))} />
+        </div>
+        <div>
+          <label className="block text-[11px] text-slate-600 mb-1">Tồn kho</label>
+          <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="number" min="0" value={draft.stockQuantity} onChange={(e) => setDraft((p) => ({ ...p, stockQuantity: Number(e.target.value) || 0 }))} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <select className="bg-white border border-slate-300 p-2 text-xs rounded" value={selectedOptionId} onChange={(e) => { setSelectedOptionId(e.target.value); setSelectedValueId('') }}>
+          <option value="">Chọn nhóm tùy chọn</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <select className="bg-white border border-slate-300 p-2 text-xs rounded" value={selectedValueId} onChange={(e) => setSelectedValueId(e.target.value)}>
+          <option value="">Chọn giá trị</option>
+          {valuesForOption.map((v) => <option key={v.id} value={v.id}>{v.value}</option>)}
+        </select>
+        <button className="border border-slate-300 px-2 py-1 text-xs rounded hover:bg-slate-50" onClick={addOptionPair}>Thêm tùy chọn</button>
+      </div>
+
+      <div className="space-y-1">
+        {draft.options.map((x) => (
+          <div key={x.optionId} className="text-xs border border-slate-200 p-2 rounded flex justify-between items-center">
+            <span>{optionName(x.optionId)}: {valueName(x.valueId)}</span>
+            <button className="text-red-600" onClick={() => removeOptionPair(x.optionId)}>Xóa</button>
+          </div>
+        ))}
+        {!draft.options.length && <div className="text-xs text-slate-500">Chưa chọn tùy chọn biến thể</div>}
+      </div>
+
+      <button className="border border-slate-300 px-3 py-2 text-xs rounded hover:bg-slate-50" onClick={onSubmit}>{submitLabel}</button>
+    </div>
+  )
+}
 
 export default function ProductDetail () {
   const { id } = useParams()
-  const [product, setProduct] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    slug: '',
-    typeId: 'SKIN_CARE_04',
-    descriptionMd: ''
-  })
+  const isNew = id === 'new'
 
-  const fallbackProduct = {
-    name: 'Glow Serum',
-    slug: 'glow-serum-v1',
-    description: 'A hyper-concentrated luminizing treatment formulated with synthesized pearl essence and high-frequency vitamins for maximum radiance.',
-    category: 'SKIN_CARE_04',
-    variants: [
-      { id: 'GS-001-LIME', colorHex: '#8df179', price: 45.00, inventory: 1240 },
-    ]
+  const [form, setForm] = useState(emptyForm)
+  const [newVariant, setNewVariant] = useState(emptyVariant)
+  const [addVariantDraft, setAddVariantDraft] = useState(emptyVariant)
+  const [quickTypeName, setQuickTypeName] = useState('')
+  const [quickBrandName, setQuickBrandName] = useState('')
+
+  const [product, setProduct] = useState(null)
+  const [media, setMedia] = useState([])
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerIndex, setViewerIndex] = useState(0)
+  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  const [meta, setMeta] = useState({ productTypes: [], brands: [], ingredients: [], skinTypes: [], concerns: [], tags: [], options: [], optionValues: [] })
+
+  const variantPayloadBase = useMemo(() => ({ sku: '', price: 0, stockQuantity: 0, isActive: true, options: [] }), [])
+  const nextSerial = (product?.variants?.length || 0) + 1
+  const currentBrand = meta.brands.find((x) => x.id === form.brandId)
+  const currentType = meta.productTypes.find((x) => (x.id || x.code) === form.typeId)
+  const optionCodeById = (id) => meta.options.find((x) => x.id === id)?.code || meta.options.find((x) => x.id === id)?.name || id
+  const skuForVariant = (variantDraft, serial) => buildSku({
+    brandCode: currentBrand?.code || currentBrand?.name || 'BR',
+    typeCode: currentType?.code || currentType?.name || 'TP',
+    productName: form.name || form.slug || 'product',
+    optionCodes: (variantDraft.options || []).map((x) => optionCodeById(x.optionId)),
+    serial
+  })
+  const createVariantSkuPreview = skuForVariant(newVariant, 1)
+  const addVariantSkuPreview = skuForVariant(addVariantDraft, nextSerial)
+
+  const fileInputRef = useRef(null)
+
+  const handleApiError = (err, fallback) => {
+    const parsed = extractApiErrorDetails(err, fallback)
+    setError(parsed.summary)
+    setFieldErrors(parsed.fieldErrors)
   }
 
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true)
-        if (id && id !== 'new') {
-          const res = await api.get(`/admin/products/${id}`)
-          setProduct(res || fallbackProduct)
-        } else {
-          setProduct(fallbackProduct)
-        }
-      } catch (err) {
-        console.warn('API error, using fallback data for mock-up', err)
-        setProduct(fallbackProduct)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchProduct()
-  }, [id])
-  useEffect(() => {
-    if (product) {
-      setFormData({
-        name: product.name || '',
-        slug: product.slug || '',
-        typeId: product.typeId || product.category || 'SKIN_CARE_04',
-        descriptionMd: product.descriptionMd || product.description || ''
-      })
-    }
-  }, [product])
+  const loadMetadata = async () => {
+    const [productTypes, brands, ingredients, skinTypes, concerns, tags, options, optionValues] = await Promise.all([
+      catalogMetadataApi.productTypes({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.brands({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.ingredients({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.skinTypes({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.concerns({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.tags({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.options({ page: 0, size: 100, sort: 'name,asc' }).catch(() => ({ content: [] })),
+      catalogMetadataApi.optionValues({ page: 0, size: 100, sort: 'sortOrder,asc' }).catch(() => ({ content: [] }))
+    ])
 
-  const handleSave = async () => {
+    setMeta({
+      productTypes: toList(productTypes), brands: toList(brands), ingredients: toList(ingredients), skinTypes: toList(skinTypes), concerns: toList(concerns), tags: toList(tags),
+      options: toList(options), optionValues: toList(optionValues)
+    })
+  }
+
+  const loadDetail = async () => {
+    if (isNew) return
     try {
-      setSaving(true)
-      const payload = { ...formData, isActive: true, isCustomizable: false }
-      
-      if (id === 'new') {
-        payload.variants = (product?.variants || []).map(v => ({
-          sku: v.sku || v.id || `SKU-${Date.now()}`,
-          price: v.price || 0,
-          stockQuantity: v.stockQuantity || v.inventory || 0,
-          isActive: true,
-          options: []
-        }))
-        await api.post('/admin/products', payload)
-        alert('CREATED MAINFRAME RECORD')
+      setLoading(true)
+      const [detail, mediaList] = await Promise.all([productsApi.detail(id), productsApi.mediaList(id).catch(() => [])])
+      setProduct(detail)
+      setMedia(Array.isArray(mediaList) ? mediaList : [])
+      setForm({
+        typeId: detail.typeId || '', name: detail.name || '', slug: detail.slug || '', descriptionMd: detail.descriptionMd || '', shortDescription: detail.shortDescription || '',
+        brandId: detail.brandId || '', isCustomizable: !!detail.customizable, isActive: !!detail.active,
+        ingredientIds: (detail.ingredients || []).map((x) => x.id), skinTypeIds: (detail.skinTypes || []).map((x) => x.id), concernIds: (detail.concerns || []).map((x) => x.id), tagIds: (detail.tags || []).map((x) => x.id)
+      })
+    } catch (err) {
+      handleApiError(err, 'Không tải được chi tiết sản phẩm')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { loadMetadata() }, [])
+  useEffect(() => { loadDetail() }, [id])
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, slug: slugify(prev.name) }))
+  }, [form.name])
+
+  const save = async () => {
+    try {
+      setError('')
+      setFieldErrors([])
+      const payload = { ...form, ingredientIds: form.ingredientIds || [], skinTypeIds: form.skinTypeIds || [], concernIds: form.concernIds || [], tagIds: form.tagIds || [] }
+
+      if (isNew) {
+        await productsApi.create({
+          ...payload,
+          variants: [{
+            ...newVariant,
+            sku: createVariantSkuPreview,
+            price: Number(newVariant.price) || 0,
+            stockQuantity: Number(newVariant.stockQuantity) || 0,
+            isActive: true
+          }]
+        })
+        setError('Tạo sản phẩm thành công')
       } else {
-        await api.put(`/admin/products/${id}`, payload)
-        alert('SAVED TO MAINFRAME')
+        await productsApi.update(id, payload)
+        await loadDetail()
       }
     } catch (err) {
-      console.error(err)
-      alert('SAVE FAILED - SYS_ERROR')
-    } finally {
-      setSaving(false)
+      handleApiError(err, 'Lưu sản phẩm thất bại')
     }
   }
 
-  const handleUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || id === 'new') {
-      alert(id === 'new' ? 'MUST_SAVE_RECORD_BEFORE_UPLOAD' : 'NO_FILE_DETECTED')
-      return
-    }
+  const createQuickType = async () => {
     try {
-      setUploading(true)
-      const data = new FormData()
-      data.append('file', file)
-      data.append('type', 'IMAGE')
-      await api.post(`/admin/products/${id}/media`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      alert('UPLOAD SUCCESS_SYMLINK_CREATED')
-      // reload or re-fetch gracefully here in real-app
-    } catch(err) {
-      console.error(err)
-      alert('UPLOAD_FAILED')
-    } finally {
-      setUploading(false)
+      setError(''); setFieldErrors([])
+      const name = quickTypeName.trim()
+      if (!name) return setFieldErrors(['type.name: must not be blank'])
+      await catalogMetadataApi.createProductType({ code: slugify(name), name, isActive: true })
+      setQuickTypeName('')
+      await loadMetadata()
+    } catch (err) {
+      handleApiError(err, 'Tạo loại sản phẩm thất bại')
     }
   }
 
-  if (loading || !product) {
-    return <div className="p-8 text-primary font-mono text-sm animate-pulse tracking-widest">INITIALIZING_PRODUCT_DATASTREAMS...</div>
+  const createQuickBrand = async () => {
+    try {
+      setError(''); setFieldErrors([])
+      const name = quickBrandName.trim()
+      if (!name) return setFieldErrors(['brand.name: must not be blank'])
+      const code = slugify(name)
+      const fd = new FormData()
+      fd.append('code', code)
+      fd.append('name', name)
+      fd.append('slug', code)
+      fd.append('description', '')
+      fd.append('isActive', 'true')
+      await catalogMetadataApi.createBrandMultipart(fd)
+      setQuickBrandName('')
+      await loadMetadata()
+    } catch (err) {
+      handleApiError(err, 'Tạo thương hiệu thất bại')
+    }
+  }
+
+  const addVariant = async () => {
+    if (isNew) return setError('Vui lòng tạo sản phẩm trước khi thêm biến thể')
+    try {
+      setError(''); setFieldErrors([])
+      await variantsApi.create({ ...variantPayloadBase, ...addVariantDraft, sku: addVariantSkuPreview, productId: id, price: Number(addVariantDraft.price) || 0, stockQuantity: Number(addVariantDraft.stockQuantity) || 0 })
+      setAddVariantDraft(emptyVariant)
+      await loadDetail()
+    } catch (err) {
+      handleApiError(err, 'Tạo biến thể thất bại')
+    }
+  }
+
+  const onUpload = async (file) => {
+    if (!file || isNew) return
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('type', 'IMAGE')
+    fd.append('primary', 'false')
+    try {
+      await productsApi.uploadMedia(id, fd)
+      await loadDetail()
+    } catch (err) {
+      handleApiError(err, 'Tải ảnh thất bại')
+    }
+  }
+
+  const optionName = (id) => meta.options.find((o) => o.id === id)?.name || id
+  const valueName = (id) => meta.optionValues.find((v) => v.id === id)?.value || id
+  const imageMedia = media.filter((m) => m.type === 'IMAGE' && m.url)
+
+  const openViewer = (index) => {
+    setViewerIndex(index)
+    setViewerOpen(true)
+  }
+
+  const prevImage = () => {
+    if (!imageMedia.length) return
+    setViewerIndex((p) => (p - 1 + imageMedia.length) % imageMedia.length)
+  }
+
+  const nextImage = () => {
+    if (!imageMedia.length) return
+    setViewerIndex((p) => (p + 1) % imageMedia.length)
   }
 
   return (
-    <div className={styles.container}>
-      
-      {/* Breadcrumbs */}
-      <div className={styles.breadcrumbs}>
-        <span>CATALOG</span> &gt; <span>SKINCARE</span> &gt; <span className={styles.breadcrumbActive}>SERUMS</span>
-      </div>
-
-      {/* Header */}
-      <div className={styles.headerRow}>
-        <h1 className={styles.title}>
-          GLOW<br/>SERUM
-        </h1>
-        <div className={styles.actions}>
-          <Link to="/products">
-            <button className={styles.discardBtn}>DISCARD<br/>CHANGES</button>
-          </Link>
-          <button 
-            className={`${styles.commitBtn} crt-scanline-green ${saving ? 'opacity-50' : ''}`}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? 'SYNCING...' : 'COMMIT TO'}<br/>{saving ? 'SYS' : 'MAINFRAME'}
-          </button>
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold text-slate-800">{isNew ? 'Tạo sản phẩm' : 'Chi tiết sản phẩm'}</h1>
+        <div className="flex gap-2">
+          <Link to="/products" className="border border-slate-300 px-3 py-2 rounded-lg text-xs">Quay lại</Link>
+          <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-semibold" onClick={save}>Lưu sản phẩm</button>
         </div>
       </div>
 
-      <div className={styles.mainGrid}>
-        
-        {/* Left Column */}
-        <div className={styles.leftCol}>
-          
-          {/* Box 1: Basic Identity */}
-          <div className={styles.terminalBox}>
-            <div className={styles.badgeTag}>SECTION: 01_BASIC_IDENTITY</div>
-            
-            <div className={styles.formGrid}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>PRODUCT_NAME</label>
-                <input 
-                  type="text" 
-                  className={styles.input} 
-                  value={formData.name}
-                  onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                />
-              </div>
+      {error && <div className="border border-red-300 bg-red-50 text-red-700 p-2 rounded text-xs mb-3">{error}</div>}
+      {!!fieldErrors.length && <ul className="border border-red-300 bg-red-50 text-red-700 p-3 text-xs mb-4 list-disc pl-5 rounded">{fieldErrors.map((e, i) => <li key={i}>{prettyFieldError(e)}</li>)}</ul>}
+      {loading && <div className="mb-4 text-xs text-slate-500">Đang tải dữ liệu...</div>}
 
-              <div className={styles.formRow}>
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label}>URL_SLUG</label>
-                  <div className={styles.inputPrefix}>
-                    <span className={styles.prefixSpan}>/PROD/</span>
-                    <input 
-                      type="text" 
-                      className={`${styles.input} ${styles.inputWithPrefix}`} 
-                      value={formData.slug}
-                      onChange={e => setFormData(p => ({ ...p, slug: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className={styles.fieldGroup}>
-                  <label className={styles.label}>CATEGORY_ID</label>
-                  <select 
-                    className={styles.input} 
-                    value={formData.typeId}
-                    onChange={e => setFormData(p => ({ ...p, typeId: e.target.value }))}
-                  >
-                    <option value="SKIN_CARE_04">SKIN_CARE_04</option>
-                    <option value="COSMETIC_BASE">COSMETIC_BASE</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.fieldGroup}>
-                <label className={styles.label}>DATA_DESCRIPTION</label>
-                <textarea 
-                  className={`${styles.input} ${styles.textarea}`} 
-                  value={formData.descriptionMd}
-                  onChange={e => setFormData(p => ({ ...p, descriptionMd: e.target.value }))}
-                ></textarea>
-              </div>
-            </div>
-          </div>
-
-          {/* Box 2: Variant Buffer */}
-          <div className={styles.terminalBox}>
-            <div className={styles.variantHeader}>
-              <h2 className={styles.variantTitle}>VARIANT_BUFFER</h2>
-              <button className={styles.addVariantBtn}>+ ADD_VARIANT</button>
-            </div>
-
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="border border-slate-200 p-4 space-y-3 bg-white rounded-xl shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div>
-              <div className={styles.tableHeader}>
-                <div>SKU_ID</div>
-                <div>COLOR</div>
-                <div>PRICE</div>
-                <div>STOCK</div>
-                <div className="text-right">ACTIONS</div>
-              </div>
-              
-              {(product.variants || []).map((variant, idx) => (
-                <div key={idx} className={styles.tableRow}>
-                  <div className={styles.skuValue}>{variant.id}</div>
-                  <div>
-                    <div className="w-4 h-4" style={{ backgroundColor: variant.colorHex, border: '1px solid #444' }}></div>
-                  </div>
-                  <div className="text-white">${(variant?.price || 0).toFixed(2)}</div>
-                  <div className="text-white">{(variant?.inventory || variant?.stockQuantity || variant?.stock || 0).toLocaleString()}</div>
-                  <div className="flex justify-end gap-4 text-muted-foreground">
-                    <Edit2 className="w-4 h-4 cursor-pointer hover:text-white transition-colors" />
-                    <Trash2 className="w-4 h-4 cursor-pointer hover:text-[#ff5555] transition-colors" />
-                  </div>
+              <label className="block text-[11px] text-slate-600 mb-1">Loại sản phẩm</label>
+              <select className="w-full bg-white border border-slate-300 p-2 text-xs rounded" value={form.typeId} onChange={(e) => setForm((p) => ({ ...p, typeId: e.target.value }))}><option value="">Chọn loại sản phẩm</option>{meta.productTypes.map((x) => <option key={x.id || x.code} value={x.id || x.code}>{x.name || x.code}</option>)}</select>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600 mb-1">Thương hiệu</label>
+              <select className="w-full bg-white border border-slate-300 p-2 text-xs rounded" value={form.brandId} onChange={(e) => setForm((p) => ({ ...p, brandId: e.target.value }))}><option value="">Chọn thương hiệu</option>{meta.brands.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+            </div>
+          </div>
+
+          {isNew && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-slate-200 p-3 bg-slate-50 rounded-lg">
+              <div className="space-y-2"><div className="text-xs text-blue-700 font-semibold">Tạo nhanh loại sản phẩm</div><input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Ví dụ: Sữa rửa mặt" value={quickTypeName} onChange={(e) => setQuickTypeName(e.target.value)} /><button className="border border-slate-300 px-2 py-1 text-xs rounded" onClick={createQuickType}>Tạo loại</button></div>
+              <div className="space-y-2"><div className="text-xs text-blue-700 font-semibold">Tạo nhanh thương hiệu</div><input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Ví dụ: CeraVe" value={quickBrandName} onChange={(e) => setQuickBrandName(e.target.value)} /><button className="border border-slate-300 px-2 py-1 text-xs rounded" onClick={createQuickBrand}>Tạo thương hiệu</button></div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[11px] text-slate-600 mb-1">Tên sản phẩm</label>
+            <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Nhập tên sản phẩm" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-600 mb-1">Slug (tự sinh theo tên)</label>
+            <input className="w-full bg-slate-100 border border-slate-300 p-2 text-xs rounded" placeholder="slug-tu-dong" value={form.slug} readOnly disabled />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-600 mb-1">Mô tả ngắn</label>
+            <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Mô tả ngắn hiển thị trên danh sách sản phẩm" value={form.shortDescription} onChange={(e) => setForm((p) => ({ ...p, shortDescription: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-600 mb-1">Mô tả chi tiết</label>
+            <textarea className="w-full bg-white border border-slate-300 p-2 text-xs min-h-28 rounded" placeholder="Nội dung mô tả chi tiết (markdown)" value={form.descriptionMd} onChange={(e) => setForm((p) => ({ ...p, descriptionMd: e.target.value }))} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <MultiSelectChecklist title="Thành phần" items={meta.ingredients} values={form.ingredientIds} onChange={(next) => setForm((p) => ({ ...p, ingredientIds: next }))} />
+            <MultiSelectChecklist title="Loại da" items={meta.skinTypes} values={form.skinTypeIds} onChange={(next) => setForm((p) => ({ ...p, skinTypeIds: next }))} />
+            <MultiSelectChecklist title="Vấn đề da" items={meta.concerns} values={form.concernIds} onChange={(next) => setForm((p) => ({ ...p, concernIds: next }))} />
+            <MultiSelectChecklist title="Nhãn" items={meta.tags} values={form.tagIds} onChange={(next) => setForm((p) => ({ ...p, tagIds: next }))} />
+          </div>
+
+          {isNew && <VariantEditor draft={newVariant} setDraft={setNewVariant} options={meta.options} optionValues={meta.optionValues} onSubmit={() => {}} submitLabel="Biến thể này sẽ dùng khi tạo sản phẩm" skuPreview={createVariantSkuPreview} />}
+        </div>
+
+        <div className="border border-slate-200 p-4 bg-white rounded-xl shadow-sm space-y-3">
+          <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-bold text-slate-700">Biến thể ({product?.variants?.length || 0})</h2></div>
+          {!isNew && <VariantEditor draft={addVariantDraft} setDraft={setAddVariantDraft} options={meta.options} optionValues={meta.optionValues} onSubmit={addVariant} submitLabel="Tạo biến thể" skuPreview={addVariantSkuPreview} />}
+
+          <div className="space-y-2 mb-4">
+            {(product?.variants || []).map((v) => (
+              <div key={v.id} className="border border-slate-200 p-2 text-xs rounded">
+                <div className="flex justify-between"><span className="text-slate-700">{v.sku} | {v.price} đ | tồn {v.stockQuantity}</span><button className="text-blue-600" onClick={() => variantsApi.setActive(v.id, !v.active).then(loadDetail)}>{v.active ? 'Ngừng bán' : 'Bật bán lại'}</button></div>
+                <div className="mt-1 text-slate-500">
+                  {(v.options || []).map((op, idx) => <div key={idx}>{optionName(op.optionId)}: {optionName(op.optionId) && op.optionValueLabel ? op.optionValueLabel : valueName(op.optionValueId || op.valueId)}</div>)}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+            {!product?.variants?.length && <div className="text-xs text-slate-500">Chưa có biến thể</div>}
           </div>
 
+          <h2 className="text-sm font-bold mb-2 text-slate-700">Hình ảnh sản phẩm ({media.length})</h2>
+          <div className="flex items-center gap-2">
+            <button type="button" className="inline-flex items-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" onClick={() => fileInputRef.current?.click()}>Chọn ảnh từ máy</button>
+            <span className="text-xs text-slate-500">Định dạng khuyến nghị: JPG/PNG</span>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onUpload(e.target.files?.[0])} className="hidden" />
+
+          <div className="space-y-2">
+            {!!imageMedia.length && (
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                {imageMedia.map((m, idx) => (
+                  <button key={m.id} type="button" className="group relative border border-slate-200 rounded-lg overflow-hidden bg-slate-50 h-20" onClick={() => openViewer(idx)}>
+                    <img src={m.url} alt={`media-${idx}`} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {media.map((m) => (
+              <div key={m.id} className="border border-slate-200 p-2 text-xs flex items-center justify-between gap-2 rounded">
+                <span className="truncate text-slate-700">{m.url}</span>
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {m.type === 'IMAGE' && <button className="text-blue-600" onClick={() => openViewer(Math.max(0, imageMedia.findIndex((x) => x.id === m.id)))}>Xem</button>}
+                  <button className="text-blue-600" onClick={() => productsApi.setPrimaryMedia(id, m.id).then(loadDetail)}>Đặt ảnh chính</button>
+                  <button className="text-red-600" onClick={() => productsApi.deleteMedia(id, m.id).then(loadDetail)}>Xóa ảnh</button>
+                </div>
+              </div>
+            ))}
+            {!media.length && <div className="text-xs text-slate-500">Chưa có hình ảnh</div>}
+          </div>
         </div>
-
-        {/* Right Column */}
-        <div className={styles.rightCol}>
-          
-          {/* Visual Assets Box */}
-          <div className={styles.terminalBox}>
-            <div className={styles.visualHeader}>
-              <h2 className={styles.visualTitle}>VISUAL_ASSETS</h2>
-              <label className={`${styles.uploadBtn} ${uploading || id === 'new' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                <input type="file" className="hidden" onChange={handleUpload} disabled={uploading || id === 'new'} />
-                <Upload className="w-3 h-3" /> {uploading ? 'UPLOADING...' : 'UPLOAD_PIXELS'}
-              </label>
-            </div>
-
-            {/* Main Render Area */}
-            <div className={styles.renderContainer}>
-              <div className="absolute inset-0 crt-scanline z-0 opacity-40"></div>
-              {/* Fake interior geometry drawing */}
-              <div className="w-3/4 h-8 bg-[#333] absolute bottom-8"></div>
-              <div className="w-full h-1 bg-[#444] absolute bottom-16"></div>
-              
-              <div className={styles.renderText}>
-                PRIMARY<br/>PRODUCT<br/>WORK
-              </div>
-              
-              <div className={styles.exeBadge}>
-                PRIMARY_RENDER.EXE
-              </div>
-            </div>
-
-            {/* Thumbnails */}
-            <div className={styles.thumbnailGrid}>
-              <div className={`${styles.thumbBox} ${styles.active}`}>
-                <div className="absolute inset-0 crt-scanline opacity-20"></div>
-                <div className="w-[20%] h-[60%] bg-[#333]"></div>
-              </div>
-              <div className={styles.thumbBox} style={{ background: 'linear-gradient(to bottom, #111, #441111)' }}>
-                <div className="absolute inset-0 crt-scanline opacity-40"></div>
-              </div>
-              <div className={styles.thumbBox} style={{ background: 'linear-gradient(to bottom, #111, #222)' }}>
-                <div className="absolute inset-0 crt-scanline opacity-40"></div>
-              </div>
-              <div className={`${styles.thumbBox} hover:bg-surface-container transition-colors`}>
-                <ImageIcon className="text-muted-foreground w-6 h-6" />
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata Box */}
-          <div className={styles.metaBox}>
-            <div className={styles.metaRow}>
-              <span>CREATED_AT:</span>
-              <span className="text-white">20XX.10.24_14:20:00</span>
-            </div>
-            <div className={styles.metaRow} style={{ marginTop: '16px' }}>
-              <span>LAST_MOD:</span>
-              <span className={styles.metaValuePink}>20XX.11.02_09:12:11</span>
-            </div>
-          </div>
-
-        </div>
-
       </div>
+
+      {viewerOpen && !!imageMedia.length && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl">
+            <button type="button" className="absolute top-3 right-3 text-slate-600 hover:text-black text-xl" onClick={() => setViewerOpen(false)}>×</button>
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+              <span>Xem ảnh sản phẩm</span>
+              <span>{viewerIndex + 1} / {imageMedia.length}</span>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-slate-100 min-h-[420px]">
+              <img src={imageMedia[viewerIndex]?.url} alt="preview" className="max-h-[70vh] w-auto object-contain rounded" />
+            </div>
+            <div className="p-4 border-t border-slate-200 flex items-center justify-between">
+              <button type="button" className="px-3 py-2 border border-slate-300 rounded text-sm" onClick={prevImage}>Ảnh trước</button>
+              <button type="button" className="px-3 py-2 border border-slate-300 rounded text-sm" onClick={nextImage}>Ảnh sau</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from './components/ThemeProvider'
 import AdminLayout from './components/layout/AdminLayout'
 import Dashboard from './features/analytics/Dashboard'
@@ -7,20 +7,39 @@ import ProductDetail from './features/catalog/ProductDetail'
 import SearchMetrics from './features/search/SearchMetrics'
 import SearchHealth from './features/search/SearchHealth'
 import OptionsRegistry from './features/catalog/OptionsRegistry'
+import SemanticMasters from './features/catalog/SemanticMasters'
+import Login from './features/auth/Login'
+import RequireAuth from './components/auth/RequireAuth'
+import RequireRole from './components/auth/RequireRole'
+import UserManagement from './features/users/UserManagement'
+import CustomerChat from './features/chat/CustomerChat'
 
 function App () {
   return (
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="products" element={<ProductList />} />
-            <Route path="products/:id" element={<ProductDetail />} />
-            <Route path="options" element={<OptionsRegistry />} />
-            <Route path="search" element={<SearchMetrics />} />
-            <Route path="search-health" element={<SearchHealth />} />
+          <Route path="/login" element={<Login />} />
+
+          <Route element={<RequireAuth />}>
+            <Route path="/" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+
+              <Route element={<RequireRole roles={['ADMIN']} />}>
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="products" element={<ProductList />} />
+                <Route path="products/:id" element={<ProductDetail />} />
+                <Route path="options" element={<OptionsRegistry />} />
+                <Route path="masters" element={<SemanticMasters />} />
+                <Route path="search" element={<SearchMetrics />} />
+                <Route path="search-health" element={<SearchHealth />} />
+                <Route path="users" element={<UserManagement />} />
+              </Route>
+
+              <Route element={<RequireRole roles={['ADMIN', 'STAFF', 'EMPLOYEE']} />}>
+                <Route path="chat" element={<CustomerChat />} />
+              </Route>
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>
