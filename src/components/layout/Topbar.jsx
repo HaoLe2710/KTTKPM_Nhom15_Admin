@@ -1,39 +1,37 @@
-import { Bell, MonitorCheck } from 'lucide-react'
+﻿import { Bell, MonitorCheck } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+
+const titleMap = {
+  '/dashboard': 'Tổng quan hệ thống',
+  '/products': 'Quản lý sản phẩm',
+  '/options': 'Tùy chọn biến thể',
+  '/masters': 'Danh mục chuẩn',
+  '/search': 'Thống kê tìm kiếm',
+  '/search-health': 'Sức khỏe catalog',
+  '/users': 'Quản lý người dùng',
+  '/chat': 'Chat khách hàng'
+}
 
 export function Topbar () {
+  const location = useLocation()
+  const title = Object.entries(titleMap).find(([k]) => location.pathname.startsWith(k))?.[1] || 'Bảng điều khiển'
+
   return (
-    <header className="h-16 border-b border-ghost-border bg-surface flex items-center justify-between px-6 shrink-0 z-10">
+    <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0 z-10">
       <div className="flex items-center gap-8 flex-1">
-        <nav className="hidden md:flex items-center gap-8 ml-6 pt-1">
-          <a href="#" className="font-mono text-[10px] font-bold text-primary tracking-widest border-b border-primary pb-2 uppercase">
-            SEARCH_INDEX_HEALTH
-          </a>
-          <a href="#" className="font-mono text-[10px] font-bold text-muted-foreground tracking-widest hover:text-white transition-colors pb-2 uppercase border-b border-transparent">
-            DATABASE
-          </a>
-          <a href="#" className="font-mono text-[10px] font-bold text-muted-foreground tracking-widest hover:text-white transition-colors pb-2 uppercase border-b border-transparent">
-            NETWORK
-          </a>
-        </nav>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
+        </div>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-xs">&gt;</span>
-          <input 
-            type="text" 
-            placeholder="SEARCH_DATABASE..." 
-            className="bg-surface-container-lowest border border-ghost-border py-2 pl-8 pr-4 font-mono text-xs text-primary w-64 focus:border-primary transition-colors focus:ring-0 outline-none"
-          />
+          <input type="text" placeholder="Tìm kiếm nhanh..." className="bg-slate-50 border border-slate-300 rounded-lg py-2 pl-3 pr-4 text-sm text-slate-700 w-64 focus:border-blue-500 outline-none" />
         </div>
-        
-        <div className="flex items-center gap-4 text-primary">
-          <button className="hover:text-white transition-colors">
-            <Bell className="w-5 h-5" />
-          </button>
-          <button className="hover:text-white transition-colors">
-            <MonitorCheck className="w-5 h-5" />
-          </button>
+
+        <div className="flex items-center gap-2 text-slate-600">
+          <button className="hover:text-blue-600 p-2 rounded-lg hover:bg-slate-100"><Bell className="w-5 h-5" /></button>
+          <button className="hover:text-blue-600 p-2 rounded-lg hover:bg-slate-100"><MonitorCheck className="w-5 h-5" /></button>
         </div>
       </div>
     </header>
