@@ -335,6 +335,64 @@ export default function ProductDetail () {
     setViewerIndex((p) => (p + 1) % imageMedia.length)
   }
 
+  const deleteImage = async (mediaId) => {
+    try {
+      await productsApi.deleteMedia(id, mediaId)
+      await loadDetail()
+    } catch (err) {
+      handleApiError(err, 'Xóa ảnh thất bại')
+    }
+  }
+
+  const togglePrimaryInViewer = async () => {
+    if (!imageMedia.length) return
+    const current = imageMedia[viewerIndex]
+    if (!current) return
+
+    try {
+      setError('')
+      setFieldErrors([])
+      if (!current.primary) {
+        await productsApi.setPrimaryMedia(id, current.id)
+        await loadDetail()
+        return
+      }
+
+      const candidateIndex = imageMedia.findIndex((m, idx) => idx !== viewerIndex)
+      if (candidateIndex < 0) {
+        setError('Không thể gỡ ảnh chính khi sản phẩm chỉ có một ảnh.')
+        return
+      }
+      const candidate = imageMedia[candidateIndex]
+      await productsApi.setPrimaryMedia(id, candidate.id)
+      await loadDetail()
+      setViewerIndex(candidateIndex)
+    } catch (err) {
+      handleApiError(err, 'Cập nhật ảnh chính thất bại')
+    }
+  }
+
+  useEffect(() => {
+    if (!imageMedia.length) {
+      setViewerOpen(false)
+      setViewerIndex(0)
+      return
+    }
+    if (viewerIndex >= imageMedia.length) setViewerIndex(imageMedia.length - 1)
+  }, [imageMedia.length, viewerIndex])
+
+  useEffect(() => {
+    if (viewerOpen) {
+      document.body.classList.add('image-viewer-open')
+    } else {
+      document.body.classList.remove('image-viewer-open')
+    }
+
+    return () => {
+      document.body.classList.remove('image-viewer-open')
+    }
+  }, [viewerOpen])
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -421,25 +479,36 @@ export default function ProductDetail () {
 
           <div className="space-y-2">
             {!!imageMedia.length && (
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {imageMedia.map((m, idx) => (
-                  <button key={m.id} type="button" className="group relative border border-slate-200 rounded-lg overflow-hidden bg-slate-50 h-20" onClick={() => openViewer(idx)}>
-                    <img src={m.url} alt={`media-${idx}`} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
-                  </button>
+                  <div key={m.id} className="group relative border border-slate-200 rounded-xl overflow-hidden bg-slate-50 h-36">
+                    <img src={m.url} alt={`media-${idx}`} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                    {m.primary && <span className="absolute top-2 left-2 text-[10px] px-2 py-1 rounded-full bg-emerald-500 text-white">Ảnh chính</span>}
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
+                      <div className="w-full p-2 flex items-center justify-center gap-2 whitespace-nowrap">
+                        <button type="button" className="px-2 py-1 rounded bg-white text-slate-700 text-[10px] font-medium" onClick={() => openViewer(idx)}>Xem trước</button>
+                        <button type="button" className="px-2 py-1 rounded bg-red-600 text-white text-[10px] font-medium" onClick={() => deleteImage(m.id)}>Xóa</button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
 
-            {media.map((m) => (
-              <div key={m.id} className="border border-slate-200 p-2 text-xs flex items-center justify-between gap-2 rounded">
-                <span className="truncate text-slate-700">{m.url}</span>
-                <div className="flex gap-2 flex-wrap justify-end">
-                  {m.type === 'IMAGE' && <button className="text-blue-600" onClick={() => openViewer(Math.max(0, imageMedia.findIndex((x) => x.id === m.id)))}>Xem</button>}
-                  <button className="text-blue-600" onClick={() => productsApi.setPrimaryMedia(id, m.id).then(loadDetail)}>Đặt ảnh chính</button>
-                  <button className="text-red-600" onClick={() => productsApi.deleteMedia(id, m.id).then(loadDetail)}>Xóa ảnh</button>
-                </div>
+            {!!media.length && media.some((m) => m.type !== 'IMAGE') && (
+              <div className="space-y-2">
+                {media.filter((m) => m.type !== 'IMAGE').map((m) => (
+                  <div key={m.id} className="border border-slate-200 rounded-lg p-2 flex items-center justify-between">
+                    <span className="text-xs text-slate-600">{m.type}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" className="text-blue-600 text-xs" onClick={() => productsApi.setPrimaryMedia(id, m.id).then(loadDetail)}>Đặt chính</button>
+                      <button type="button" className="text-red-600 text-xs" onClick={() => productsApi.deleteMedia(id, m.id).then(loadDetail)}>Xóa</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
             {!media.length && <div className="text-xs text-slate-500">Chưa có hình ảnh</div>}
           </div>
         </div>
@@ -447,18 +516,27 @@ export default function ProductDetail () {
 
       {viewerOpen && !!imageMedia.length && (
         <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-4xl">
-            <button type="button" className="absolute top-3 right-3 text-slate-600 hover:text-black text-xl" onClick={() => setViewerOpen(false)}>×</button>
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-5xl">
+            <div className="p-4 border-b border-slate-200 grid grid-cols-3 items-center text-xs text-slate-600">
               <span>Xem ảnh sản phẩm</span>
-              <span>{viewerIndex + 1} / {imageMedia.length}</span>
+              <span className="text-center font-semibold">{viewerIndex + 1} / {imageMedia.length}</span>
+              <div className="text-right">
+                <button type="button" className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 text-slate-600 hover:bg-slate-100" onClick={() => setViewerOpen(false)}>×</button>
+              </div>
             </div>
-            <div className="p-4 flex items-center justify-center bg-slate-100 min-h-[420px]">
+            <div className="relative p-4 flex items-center justify-center bg-slate-100 min-h-[420px]">
+              <button type="button" className="absolute left-4 top-1/2 -translate-y-1/2 px-3 py-2 border border-slate-300 rounded bg-white/90 text-sm" onClick={prevImage}>‹</button>
               <img src={imageMedia[viewerIndex]?.url} alt="preview" className="max-h-[70vh] w-auto object-contain rounded" />
+              <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 px-3 py-2 border border-slate-300 rounded bg-white/90 text-sm" onClick={nextImage}>›</button>
             </div>
-            <div className="p-4 border-t border-slate-200 flex items-center justify-between">
-              <button type="button" className="px-3 py-2 border border-slate-300 rounded text-sm" onClick={prevImage}>Ảnh trước</button>
-              <button type="button" className="px-3 py-2 border border-slate-300 rounded text-sm" onClick={nextImage}>Ảnh sau</button>
+            <div className="p-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                className={`px-3 py-2 rounded text-xs font-medium ${imageMedia[viewerIndex]?.primary ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-600 text-white'}`}
+                onClick={togglePrimaryInViewer}
+              >
+                {imageMedia[viewerIndex]?.primary ? 'Gỡ đặt chính' : 'Đặt làm ảnh chính'}
+              </button>
             </div>
           </div>
         </div>

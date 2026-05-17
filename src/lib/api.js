@@ -21,7 +21,15 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    const payload = response?.data
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      if (Object.prototype.hasOwnProperty.call(payload, 'data') && Object.prototype.hasOwnProperty.call(payload, 'success')) {
+        return payload.data
+      }
+    }
+    return payload
+  },
   (error) => {
     if (error?.response?.status === 401) {
       clearAuthSession()
