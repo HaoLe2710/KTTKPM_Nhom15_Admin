@@ -18,7 +18,14 @@ export const searchMetricsApi = {
   zeroResultQueries: (params) => api.get('/admin/search/zero-result-queries', { params }),
   topClickedProducts: (params) => api.get('/admin/search/top-clicked-products', { params }),
   summary: () => api.get('/admin/search/summary'),
-  synonymRecommendations: (params) => api.post('/admin/search/synonyms/recommendations', null, { params })
+  synonymRecommendations: (params) => api.post('/admin/search/synonyms/recommendations', null, { params }),
+  rebuildProjection: (productId) => api.post(`/admin/search/projections/rebuild/${productId}`),
+  rebuildAllProjections: () => api.post('/admin/search/projections/rebuild-all'),
+  projectionTasks: (params) => api.get('/admin/search/projection-tasks', { params }),
+  projectionFailures: (params) => api.get('/admin/search/projection-failures', { params }),
+  retryProjectionFailure: (productId) => api.post(`/admin/search/projection-failures/${productId}/retry`),
+  resolveProjectionFailure: (productId, payload) => api.post(`/admin/search/projection-failures/${productId}/resolve`, payload || {}),
+  projectionRuns: (params) => api.get('/admin/search/projection-runs', { params })
 }
 
 export const usersApi = {

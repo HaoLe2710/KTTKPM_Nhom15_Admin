@@ -83,4 +83,8 @@
 
   .bg-black { background-color: #ffffff !important; }
   .text-white { color: #0f172a !important; }
+
+  body.image-viewer-open .admin-app-footer {
+    display: none !important;
+  }
 }
