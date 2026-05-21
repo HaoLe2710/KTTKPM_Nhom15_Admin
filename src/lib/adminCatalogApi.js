@@ -43,13 +43,17 @@ export const chatApi = {
   customerSend: (payload) => api.post('/chat/customer/messages', payload),
   staffActiveRooms: () => api.get('/chat/staff/rooms/active'),
   assignRoom: (roomId) => api.patch(`/chat/staff/rooms/${roomId}/assign`),
+  closeRoom: (roomId) => api.patch(`/chat/staff/rooms/${roomId}/close`),
   staffSend: (roomId, payload) => api.post(`/chat/staff/rooms/${roomId}/messages`, payload),
   roomMessages: (roomId) => api.get(`/chat/rooms/${roomId}/messages`),
-  sendToRoom: (roomId, payload) => api.post(`/chat/rooms/${roomId}/messages`, payload)
+  sendToRoom: (roomId, payload) => api.post(`/chat/rooms/${roomId}/messages`, payload),
+  uploadAttachment: (formData) => api.post('/chat/attachments', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
 
 export const productsApi = {
   list: (params) => api.get('/admin/products', { params }),
+  publicSearch: (params) => api.get('/products/search', { params }),
+  publicDetail: (id) => api.get(`/products/${id}`),
   detail: (id) => api.get(`/admin/products/${id}`),
   create: (payload) => api.post('/admin/products', payload),
   update: (id, payload) => api.put(`/admin/products/${id}`, payload),
