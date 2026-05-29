@@ -79,6 +79,15 @@ export const variantsApi = {
   setPrimaryMedia: (variantId, mediaId) => api.patch(`/admin/variants/${variantId}/media/${mediaId}/primary`)
 }
 
+export const promotionsApi = {
+  list: (params) => api.get('/promotions', { params }),
+  active: (params) => api.get('/promotions/active', { params }),
+  create: (payload) => api.post('/promotions', payload),
+  update: (id, payload) => api.put(`/promotions/${id}`, payload),
+  deactivate: (id) => api.post(`/promotions/${id}/deactivate`),
+  delete: (id) => api.delete(`/promotions/${id}`)
+}
+
 export const optionsApi = {
   list: (params) => api.get('/admin/options', { params }),
   create: (payload) => api.post('/admin/options', payload),

@@ -70,7 +70,7 @@ function messageSummaryOf (message) {
   if (message?.content || message?.text || message?.message) return message.content || message.text || message.message
   if (message?.type === 'IMAGE' || message?.imageUrl) return '[Hinh anh]'
   if (message?.type === 'VIDEO' || message?.videoUrl) return '[Video]'
-  if (message?.type === 'PRODUCT_LINK' || message?.linkUrl) return message?.productName || '[Link san pham]'
+  if (message?.type === 'PRODUCT_LINK' || message?.linkUrl) return message?.productName || '[Link sản phẩm]'
   return legacySummary
 }
 
@@ -551,7 +551,7 @@ export default function CustomerChat () {
               <div className="flex gap-2">
                 <input className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Tìm sản phẩm để gửi cho" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && searchProducts()} disabled={!activeId || isRoomClosed(activeRoom) || sending || searchingProducts} />
                 <button type="button" className="border border-slate-300 rounded-lg px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50" onClick={searchProducts} disabled={!activeId || isRoomClosed(activeRoom) || sending || searchingProducts}>
-                  {searchingProducts ? 'Dang tim' : 'Search'}
+                  {searchingProducts ? 'Đang tìm' : 'Search'}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-44 overflow-y-auto">

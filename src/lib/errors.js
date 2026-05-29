@@ -1,4 +1,4 @@
-﻿export function extractApiError (err, fallback = 'Request failed') {
+export function extractApiError (err, fallback = 'Request failed') {
   const parsed = extractApiErrorDetails(err, fallback)
   return parsed.summary
 }
@@ -31,7 +31,7 @@ function mapBackendErrorToFriendlyMessage (rawMessage, fallback) {
     return 'Hệ thống đang lỗi xử lý dữ liệu. Vui lòng thử lại sau.'
   }
 
-  if (lower.includes('loi may chu') || lower.includes('lỗi máy chủ')) {
+  if (lower.includes('lỗi máy chủ') || lower.includes('lỗi máy chủ')) {
     return 'Máy chủ đang gặp lỗi. Vui lòng thử lại sau.'
   }
 
