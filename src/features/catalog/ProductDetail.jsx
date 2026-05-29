@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { catalogMetadataApi, productsApi, variantsApi } from '../../lib/adminCatalogApi'
+import { catalogMetadataApi, productsApi, promotionsApi, variantsApi } from '../../lib/adminCatalogApi'
 import { extractApiErrorDetails } from '../../lib/errors'
 
 const emptyForm = { typeId: '', name: '', slug: '', descriptionMd: '', shortDescription: '', brandId: '', isCustomizable: false, isActive: true, ingredientIds: [], skinTypeIds: [], concernIds: [], tagIds: [] }
@@ -57,6 +57,53 @@ function buildSku ({ brandCode, typeCode, productName, optionCodes, serial }) {
   const optionPart = optionCodes.length ? optionCodes.map((x) => codePart(x, 3)).join('') : 'STD'
   const serialPart = String(serial).padStart(3, '0')
   return `${codePart(brandCode)}-${codePart(typeCode)}-${nameCode}-${optionPart}-${serialPart}`
+}
+
+const PRODUCT_DISCOUNT_TYPE = 'PRODUCT_DISCOUNT'
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+
+function formatPrice (value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')} đ`
+}
+
+function toDateTimeInputValue (date) {
+  const pad = (part) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function toLocalDateTimePayload (value) {
+  return value && value.length === 16 ? `${value}:00` : value
+}
+
+function defaultPromotionDraft (productName = '') {
+  const now = new Date()
+  return {
+    code: '',
+    name: productName ? `Khuyến mãi ${productName}` : 'Khuyến mãi sản phẩm',
+    discountMode: 'PERCENT',
+    discountValue: 10,
+    startDate: toDateTimeInputValue(now),
+    endDate: toDateTimeInputValue(new Date(now.getTime() + 7 * DAY_IN_MS)),
+    usageLimit: '',
+    variantIds: []
+  }
+}
+
+function promotionVariantIds (promotion) {
+  const ids = promotion?.config?.variantIds
+  return Array.isArray(ids) ? ids.map((id) => String(id)) : []
+}
+
+function promotionAppliesToProduct (promotion, variants = []) {
+  const productVariantIds = new Set(variants.map((variant) => String(variant.id)))
+  return promotionVariantIds(promotion).some((variantId) => productVariantIds.has(variantId))
+}
+
+function discountLabelOf (promotion) {
+  const percent = promotion?.config?.discountPercent
+  if (percent !== undefined && percent !== null) return `-${Number(percent)}%`
+  const amount = promotion?.config?.discountAmount
+  return amount !== undefined && amount !== null ? `-${formatPrice(amount)}` : 'Đang giảm'
 }
 
 function MultiSelectChecklist ({ title, items, values, onChange }) {
@@ -160,6 +207,9 @@ export default function ProductDetail () {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState([])
   const [loading, setLoading] = useState(false)
+  const [productPromotions, setProductPromotions] = useState([])
+  const [promotionDraft, setPromotionDraft] = useState(defaultPromotionDraft())
+  const [promotionSaving, setPromotionSaving] = useState(false)
 
   const [meta, setMeta] = useState({ productTypes: [], brands: [], ingredients: [], skinTypes: [], concerns: [], tags: [], options: [], optionValues: [] })
 
@@ -208,9 +258,24 @@ export default function ProductDetail () {
     if (isNew) return
     try {
       setLoading(true)
-      const [detail, mediaList] = await Promise.all([productsApi.detail(id), productsApi.mediaList(id).catch(() => [])])
+      const [detail, mediaList, activePromotions] = await Promise.all([
+        productsApi.detail(id),
+        productsApi.mediaList(id).catch(() => []),
+        promotionsApi.active({ type: PRODUCT_DISCOUNT_TYPE }).catch(() => [])
+      ])
+      const variants = detail?.variants || []
       setProduct(detail)
       setMedia(Array.isArray(mediaList) ? mediaList : [])
+      setProductPromotions(toList(activePromotions).filter((promotion) => promotionAppliesToProduct(promotion, variants)))
+      setPromotionDraft((previousDraft) => {
+        const validVariantIds = new Set(variants.map((variant) => String(variant.id)))
+        const selectedVariantIds = previousDraft.variantIds.filter((variantId) => validVariantIds.has(String(variantId)))
+        return {
+          ...previousDraft,
+          name: previousDraft.name || defaultPromotionDraft(detail.name).name,
+          variantIds: selectedVariantIds.length ? selectedVariantIds : variants.filter((variant) => variant.active !== false).map((variant) => variant.id)
+        }
+      })
       setForm({
         typeId: detail.typeId || '', name: detail.name || '', slug: detail.slug || '', descriptionMd: detail.descriptionMd || '', shortDescription: detail.shortDescription || '',
         brandId: detail.brandId || '', isCustomizable: !!detail.customizable, isActive: !!detail.active,
@@ -299,6 +364,73 @@ export default function ProductDetail () {
       await loadDetail()
     } catch (err) {
       handleApiError(err, 'Tạo biến thể thất bại')
+    }
+  }
+
+  const togglePromotionVariant = (variantId) => {
+    setPromotionDraft((previousDraft) => ({
+      ...previousDraft,
+      variantIds: toggleId(previousDraft.variantIds, variantId)
+    }))
+  }
+
+  const createProductPromotion = async () => {
+    if (isNew) return setError('Vui lòng tạo sản phẩm trước khi thêm khuyến mãi')
+    if (!promotionDraft.variantIds.length) return setFieldErrors(['promotion.variantIds: chọn ít nhất một biến thể'])
+
+    const discountValue = Number(promotionDraft.discountValue)
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+      return setFieldErrors(['promotion.discountValue: giá trị giảm phải lớn hơn 0'])
+    }
+    if (promotionDraft.discountMode === 'PERCENT' && discountValue > 100) {
+      return setFieldErrors(['promotion.discountValue: phần trăm giảm không được vượt quá 100'])
+    }
+    if (!promotionDraft.startDate || !promotionDraft.endDate) {
+      return setFieldErrors(['promotion.date: thời gian khuyến mãi không được để trống'])
+    }
+
+    const fallbackCode = `SALE-${slugify(form.name || product?.name || 'product')}-${Date.now().toString().slice(-6)}`
+    const config = {
+      variantIds: promotionDraft.variantIds
+    }
+    if (promotionDraft.discountMode === 'PERCENT') {
+      config.discountPercent = discountValue
+    } else {
+      config.discountAmount = discountValue
+    }
+
+    try {
+      setPromotionSaving(true)
+      setError('')
+      setFieldErrors([])
+      await promotionsApi.create({
+        code: (promotionDraft.code || fallbackCode).trim().toUpperCase(),
+        name: (promotionDraft.name || `Khuyến mãi ${form.name || product?.name || 'sản phẩm'}`).trim(),
+        type: PRODUCT_DISCOUNT_TYPE,
+        config,
+        startDate: toLocalDateTimePayload(promotionDraft.startDate),
+        endDate: toLocalDateTimePayload(promotionDraft.endDate),
+        usageLimit: promotionDraft.usageLimit === '' ? null : Number(promotionDraft.usageLimit),
+        active: true
+      })
+      setPromotionDraft(defaultPromotionDraft(form.name || product?.name || ''))
+      setError('Đã tạo khuyến mãi sản phẩm thành công')
+      await loadDetail()
+    } catch (err) {
+      handleApiError(err, 'Tạo khuyến mãi sản phẩm thất bại')
+    } finally {
+      setPromotionSaving(false)
+    }
+  }
+
+  const deactivateProductPromotion = async (promotionId) => {
+    try {
+      setError('')
+      setFieldErrors([])
+      await promotionsApi.deactivate(promotionId)
+      await loadDetail()
+    } catch (err) {
+      handleApiError(err, 'Ngừng khuyến mãi thất bại')
     }
   }
 
@@ -459,16 +591,105 @@ export default function ProductDetail () {
           {!isNew && <VariantEditor draft={addVariantDraft} setDraft={setAddVariantDraft} options={meta.options} optionValues={meta.optionValues} onSubmit={addVariant} submitLabel="Tạo biến thể" skuPreview={addVariantSkuPreview} />}
 
           <div className="space-y-2 mb-4">
-            {(product?.variants || []).map((v) => (
-              <div key={v.id} className="border border-slate-200 p-2 text-xs rounded">
-                <div className="flex justify-between"><span className="text-slate-700">{v.sku} | {v.price} đ | tồn {v.stockQuantity}</span><button className="text-blue-600" onClick={() => variantsApi.setActive(v.id, !v.active).then(loadDetail)}>{v.active ? 'Ngừng bán' : 'Bật bán lại'}</button></div>
-                <div className="mt-1 text-slate-500">
-                  {(v.options || []).map((op, idx) => <div key={idx}>{optionName(op.optionId)}: {optionName(op.optionId) && op.optionValueLabel ? op.optionValueLabel : valueName(op.optionValueId || op.valueId)}</div>)}
+            {(product?.variants || []).map((v) => {
+              const variantPromotions = productPromotions.filter((promotion) => promotionVariantIds(promotion).includes(String(v.id)))
+              return (
+                <div key={v.id} className="border border-slate-200 p-2 text-xs rounded">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-700">{v.sku} | {formatPrice(v.price)} | tồn {v.stockQuantity}</span>
+                    <button className="text-blue-600" onClick={() => variantsApi.setActive(v.id, !v.active).then(loadDetail)}>{v.active ? 'Ngừng bán' : 'Bật bán lại'}</button>
+                  </div>
+                  {!!variantPromotions.length && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {variantPromotions.map((promotion) => (
+                        <span key={promotion.id} className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">
+                          {promotion.code} {discountLabelOf(promotion)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-1 text-slate-500">
+                    {(v.options || []).map((op, idx) => <div key={idx}>{optionName(op.optionId)}: {optionName(op.optionId) && op.optionValueLabel ? op.optionValueLabel : valueName(op.optionValueId || op.valueId)}</div>)}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {!product?.variants?.length && <div className="text-xs text-slate-500">Chưa có biến thể</div>}
           </div>
+
+          {!isNew && (
+            <div className="border border-rose-200 bg-rose-50/40 p-3 rounded-lg space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-700">Khuyến mãi sản phẩm</h2>
+                {!!productPromotions.length && <span className="rounded-full bg-rose-600 px-2 py-1 text-[10px] font-semibold text-white">{productPromotions.length} đang chạy</span>}
+              </div>
+
+              <div className="space-y-2">
+                {productPromotions.map((promotion) => (
+                  <div key={promotion.id} className="rounded border border-rose-200 bg-white p-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-800">{promotion.name}</div>
+                        <div className="mt-1 text-slate-500">{promotion.code} · {discountLabelOf(promotion)} · đã dùng {promotion.usedCount ?? 0}{promotion.usageLimit ? `/${promotion.usageLimit}` : ''}</div>
+                      </div>
+                      <button type="button" className="text-rose-700" onClick={() => deactivateProductPromotion(promotion.id)}>Ngừng</button>
+                    </div>
+                  </div>
+                ))}
+                {!productPromotions.length && <div className="text-xs text-slate-500">Sản phẩm chưa có khuyến mãi đang hoạt động.</div>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Mã khuyến mãi</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded uppercase" placeholder="Tự sinh nếu bỏ trống" value={promotionDraft.code} onChange={(e) => setPromotionDraft((p) => ({ ...p, code: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Tên hiển thị</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" value={promotionDraft.name} onChange={(e) => setPromotionDraft((p) => ({ ...p, name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Kiểu giảm</label>
+                  <select className="w-full bg-white border border-slate-300 p-2 text-xs rounded" value={promotionDraft.discountMode} onChange={(e) => setPromotionDraft((p) => ({ ...p, discountMode: e.target.value }))}>
+                    <option value="PERCENT">Giảm theo %</option>
+                    <option value="FIXED">Giảm số tiền</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Giá trị giảm</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="number" min="0" value={promotionDraft.discountValue} onChange={(e) => setPromotionDraft((p) => ({ ...p, discountValue: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Bắt đầu</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="datetime-local" value={promotionDraft.startDate} onChange={(e) => setPromotionDraft((p) => ({ ...p, startDate: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-600 mb-1">Kết thúc</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="datetime-local" value={promotionDraft.endDate} onChange={(e) => setPromotionDraft((p) => ({ ...p, endDate: e.target.value }))} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[11px] text-slate-600 mb-1">Giới hạn lượt dùng</label>
+                  <input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" type="number" min="1" placeholder="Không giới hạn nếu bỏ trống" value={promotionDraft.usageLimit} onChange={(e) => setPromotionDraft((p) => ({ ...p, usageLimit: e.target.value }))} />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-[11px] font-semibold text-slate-600">Biến thể áp dụng</div>
+                <div className="max-h-32 overflow-auto space-y-1 rounded border border-rose-100 bg-white p-2">
+                  {(product?.variants || []).map((variant) => (
+                    <label key={variant.id} className="flex items-center gap-2 text-xs text-slate-700">
+                      <input type="checkbox" checked={promotionDraft.variantIds.includes(variant.id)} onChange={() => togglePromotionVariant(variant.id)} />
+                      <span>{variant.sku} · {formatPrice(variant.price)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button type="button" className="w-full rounded bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50" disabled={promotionSaving || !(product?.variants || []).length} onClick={createProductPromotion}>
+                {promotionSaving ? 'Đang tạo khuyến mãi...' : 'Tạo khuyến mãi cho sản phẩm'}
+              </button>
+            </div>
+          )}
 
           <h2 className="text-sm font-bold mb-2 text-slate-700">Hình ảnh sản phẩm ({media.length})</h2>
           <div className="flex items-center gap-2">

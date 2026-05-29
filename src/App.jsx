@@ -13,6 +13,7 @@ import RequireAuth from './components/auth/RequireAuth'
 import RequireRole from './components/auth/RequireRole'
 import UserManagement from './features/users/UserManagement'
 import CustomerChat from './features/chat/CustomerChat'
+import VoucherManagement from './features/promotions/VoucherManagement'
 
 function App () {
   return (
@@ -34,6 +35,7 @@ function App () {
                 <Route path="search" element={<SearchMetrics />} />
                 <Route path="search-health" element={<SearchHealth />} />
                 <Route path="users" element={<UserManagement />} />
+                <Route path="vouchers" element={<VoucherManagement />} />
               </Route>
 
               <Route element={<RequireRole roles={['ADMIN', 'STAFF', 'EMPLOYEE']} />}>

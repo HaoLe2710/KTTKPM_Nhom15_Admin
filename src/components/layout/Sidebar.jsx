@@ -1,6 +1,6 @@
 ﻿import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle } from 'lucide-react'
+import { BadgePercent, LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle } from 'lucide-react'
 import { clearAuthSession, getCurrentRole } from '../../lib/auth'
 
 const adminItems = [
@@ -10,7 +10,8 @@ const adminItems = [
   { href: '/masters', label: 'Danh mục chuẩn', icon: Shapes },
   { href: '/search', label: 'Thống kê tìm kiếm', icon: Search },
   { href: '/search-health', label: 'Sức khỏe catalog', icon: ActivitySquare },
-  { href: '/users', label: 'Quản lý người dùng', icon: Users }
+  { href: '/users', label: 'Quản lý người dùng', icon: Users },
+  { href: '/vouchers', label: 'Voucher hóa đơn', icon: BadgePercent }
 ]
 
 const employeeItems = [{ href: '/chat', label: 'Chat khách hàng', icon: MessageCircle }]

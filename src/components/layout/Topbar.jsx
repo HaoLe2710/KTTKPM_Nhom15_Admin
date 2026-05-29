@@ -9,6 +9,7 @@ const titleMap = {
   '/search': 'Thống kê tìm kiếm',
   '/search-health': 'Sức khỏe catalog',
   '/users': 'Quản lý người dùng',
+  '/vouchers': 'Voucher hóa đơn',
   '/chat': 'Chat khách hàng'
 }
 
