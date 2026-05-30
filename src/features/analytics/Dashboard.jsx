@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react'
-import { format, subDays } from 'date-fns'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { subDays } from 'date-fns'
 import { BarChart, Bar, ResponsiveContainer, Cell } from 'recharts'
 import { Banknote, CheckCircle2 } from 'lucide-react'
 import { dashboardApi } from '../../lib/adminCatalogApi'
@@ -11,13 +11,14 @@ export default function Dashboard () {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const dateRange = {
-    startDate: subDays(new Date(), 30),
-    endDate: new Date()
-  }
-
-  const formattedStart = format(dateRange.startDate, "yyyy-MM-dd'T'HH:mm:ss")
-  const formattedEnd = format(dateRange.endDate, "yyyy-MM-dd'T'HH:mm:ss")
+  const range = useMemo(() => {
+    const endDate = new Date()
+    const startDate = subDays(endDate, 30)
+    return {
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
+    }
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,7 +26,7 @@ export default function Dashboard () {
         setLoading(true)
         setError('')
         const [dashRes, runsRes] = await Promise.all([
-          dashboardApi.summary({ startDate: formattedStart, endDate: formattedEnd }),
+          dashboardApi.summary({ startDate: range.start, endDate: range.end }),
           dashboardApi.projectionRuns({ page: 0, size: 5, sort: 'startedAt,desc' })
         ])
         setData(dashRes || null)
@@ -37,7 +38,7 @@ export default function Dashboard () {
       }
     }
     fetchData()
-  }, [formattedStart, formattedEnd])
+  }, [range.start, range.end])
 
   const chartData = data?.chartData || []
   const logs = runLogs.map((run) => ({

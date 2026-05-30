@@ -8,6 +8,12 @@ export const catalogDefaultsApi = {
   options: () => api.get('/admin/catalog/default-options')
 }
 
+export const eventsPublicationsApi = {
+  summary: () => api.get('/admin/events/publications/summary'),
+  list: (params) => api.get('/admin/events/publications', { params }),
+  detail: (id) => api.get(`/admin/events/publications/${id}`)
+}
+
 export const dashboardApi = {
   summary: (params) => api.get('/analytics/dashboard', { params }),
   projectionRuns: (params) => api.get('/admin/search/projection-runs', { params })
@@ -38,16 +44,21 @@ export const usersApi = {
 }
 
 export const chatApi = {
-  customerActiveRoom: () => api.get('/chat/customer/rooms/active'),
-  customerCreateRoom: () => api.post('/chat/customer/rooms'),
-  customerSend: (payload) => api.post('/chat/customer/messages', payload),
-  staffActiveRooms: () => api.get('/chat/staff/rooms/active'),
-  assignRoom: (roomId) => api.patch(`/chat/staff/rooms/${roomId}/assign`),
-  closeRoom: (roomId) => api.patch(`/chat/staff/rooms/${roomId}/close`),
-  staffSend: (roomId, payload) => api.post(`/chat/staff/rooms/${roomId}/messages`, payload),
-  roomMessages: (roomId) => api.get(`/chat/rooms/${roomId}/messages`),
-  sendToRoom: (roomId, payload) => api.post(`/chat/rooms/${roomId}/messages`, payload),
-  uploadAttachment: (formData) => api.post('/chat/attachments', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+  customerActiveRoom: (userId) => api.get('/chat/customer/rooms/active', userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  customerCreateRoom: (userId) => api.post('/chat/customer/rooms', null, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  customerSend: (payload, userId) => api.post('/chat/customer/messages', payload, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  staffActiveRooms: (userId) => api.get('/chat/staff/rooms/active', userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  assignRoom: (roomId, userId) => api.patch(`/chat/staff/rooms/${roomId}/assign`, null, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  closeRoom: (roomId, userId) => api.patch(`/chat/staff/rooms/${roomId}/close`, null, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  staffSend: (roomId, payload, userId) => api.post(`/chat/staff/rooms/${roomId}/messages`, payload, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  roomMessages: (roomId, userId) => api.get(`/chat/rooms/${roomId}/messages`, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  sendToRoom: (roomId, payload, userId) => api.post(`/chat/rooms/${roomId}/messages`, payload, userId ? { headers: { 'X-User-Id': userId } } : undefined),
+  uploadAttachment: (formData, userId) => api.post('/chat/attachments', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...(userId ? { 'X-User-Id': userId } : {})
+    }
+  })
 }
 
 export const productsApi = {

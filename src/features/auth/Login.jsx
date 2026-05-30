@@ -36,9 +36,10 @@ export default function Login () {
       const accessToken = res?.accessToken || res?.token
       const tokenType = res?.tokenType || 'Bearer'
       const role = normalizeRole(res?.role)
-      const userId = res?.userId || form.identifier.trim().toLowerCase()
+      const userId = res?.userId || res?.user?.id
 
       if (!accessToken) return setError('Đăng nhập thành công nhưng BE không trả accessToken')
+      if (!userId) return setError('Đăng nhập thành công nhưng BE không trả userId. Không thể gọi API chat/admin.')
       if (!['ADMIN', 'STAFF', 'EMPLOYEE'].includes(role)) return setError(`Vai trò '${role || 'UNKNOWN'}' không được phép truy cập`) 
 
       setAuthSession({ accessToken, tokenType, role, userId })

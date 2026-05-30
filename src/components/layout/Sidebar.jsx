@@ -1,6 +1,6 @@
-﻿import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { BadgePercent, LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle, ScrollText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BadgePercent, LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle } from 'lucide-react'
 import { clearAuthSession, getCurrentRole } from '../../lib/auth'
 
 const adminItems = [
@@ -9,6 +9,7 @@ const adminItems = [
   { href: '/options', label: 'Tùy chọn biến thể', icon: SlidersHorizontal },
   { href: '/masters', label: 'Danh mục chuẩn', icon: Shapes },
   { href: '/search', label: 'Thống kê tìm kiếm', icon: Search },
+  { href: '/event-publications', label: 'Event Publications', icon: ScrollText },
   { href: '/search-health', label: 'Sức khỏe catalog', icon: ActivitySquare },
   { href: '/users', label: 'Quản lý người dùng', icon: Users },
   { href: '/vouchers', label: 'Voucher hóa đơn', icon: BadgePercent }
@@ -20,6 +21,7 @@ export function Sidebar () {
   const location = useLocation()
   const navigate = useNavigate()
   const role = getCurrentRole()
+  const pathname = location.pathname
 
   const navItems = role === 'ADMIN' ? [...adminItems, ...employeeItems] : employeeItems
 
@@ -38,7 +40,7 @@ export function Sidebar () {
       <nav className="flex-1 overflow-y-auto w-full px-3">
         <ul className="space-y-2 w-full">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`)
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
             return (
               <li key={item.href} className="w-full">
                 <Link

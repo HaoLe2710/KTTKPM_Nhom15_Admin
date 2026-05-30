@@ -6,6 +6,7 @@ import ProductList from './features/catalog/ProductList'
 import ProductDetail from './features/catalog/ProductDetail'
 import SearchMetrics from './features/search/SearchMetrics'
 import SearchHealth from './features/search/SearchHealth'
+import EventPublications from './features/search/EventPublications'
 import OptionsRegistry from './features/catalog/OptionsRegistry'
 import SemanticMasters from './features/catalog/SemanticMasters'
 import Login from './features/auth/Login'
@@ -34,6 +35,7 @@ function App () {
                 <Route path="masters" element={<SemanticMasters />} />
                 <Route path="search" element={<SearchMetrics />} />
                 <Route path="search-health" element={<SearchHealth />} />
+                <Route path="event-publications" element={<EventPublications />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="vouchers" element={<VoucherManagement />} />
               </Route>

@@ -7,6 +7,7 @@ const titleMap = {
   '/options': 'Tùy chọn biến thể',
   '/masters': 'Danh mục chuẩn',
   '/search': 'Thống kê tìm kiếm',
+  '/event-publications': 'Event Publications',
   '/search-health': 'Sức khỏe catalog',
   '/users': 'Quản lý người dùng',
   '/vouchers': 'Voucher hóa đơn',
