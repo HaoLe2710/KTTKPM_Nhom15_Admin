@@ -2,6 +2,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { catalogMetadataApi, productsApi, promotionsApi, variantsApi } from '../../lib/adminCatalogApi'
 import { extractApiErrorDetails } from '../../lib/errors'
+import { getCurrentRole } from '../../lib/auth'
 
 const emptyForm = { typeId: '', name: '', slug: '', descriptionMd: '', shortDescription: '', brandId: '', isCustomizable: false, isActive: true, ingredientIds: [], skinTypeIds: [], concernIds: [], tagIds: [] }
 const emptyVariant = { sku: '', price: 0, stockQuantity: 0, isActive: true, options: [] }
@@ -193,6 +194,7 @@ function VariantEditor ({ draft, setDraft, options, optionValues, onSubmit, subm
 export default function ProductDetail () {
   const { id } = useParams()
   const isNew = id === 'new'
+  const canEdit = getCurrentRole() === 'ADMIN'
 
   const [form, setForm] = useState(emptyForm)
   const [newVariant, setNewVariant] = useState(emptyVariant)
@@ -296,6 +298,7 @@ export default function ProductDetail () {
   }, [form.name])
 
   const save = async () => {
+    if (!canEdit) return
     try {
       setError('')
       setFieldErrors([])
@@ -323,6 +326,7 @@ export default function ProductDetail () {
   }
 
   const createQuickType = async () => {
+    if (!canEdit) return
     try {
       setError(''); setFieldErrors([])
       const name = quickTypeName.trim()
@@ -336,6 +340,7 @@ export default function ProductDetail () {
   }
 
   const createQuickBrand = async () => {
+    if (!canEdit) return
     try {
       setError(''); setFieldErrors([])
       const name = quickBrandName.trim()
@@ -356,6 +361,7 @@ export default function ProductDetail () {
   }
 
   const addVariant = async () => {
+    if (!canEdit) return
     if (isNew) return setError('Vui lòng tạo sản phẩm trước khi thêm biến thể')
     try {
       setError(''); setFieldErrors([])
@@ -375,6 +381,7 @@ export default function ProductDetail () {
   }
 
   const createProductPromotion = async () => {
+    if (!canEdit) return
     if (isNew) return setError('Vui lòng tạo sản phẩm trước khi thêm khuyến mãi')
     if (!promotionDraft.variantIds.length) return setFieldErrors(['promotion.variantIds: chọn ít nhất một biến thể'])
 
@@ -424,6 +431,7 @@ export default function ProductDetail () {
   }
 
   const deactivateProductPromotion = async (promotionId) => {
+    if (!canEdit) return
     try {
       setError('')
       setFieldErrors([])
@@ -435,6 +443,7 @@ export default function ProductDetail () {
   }
 
   const onUpload = async (file) => {
+    if (!canEdit) return
     if (!file || isNew) return
     const fd = new FormData()
     fd.append('file', file)
@@ -468,6 +477,7 @@ export default function ProductDetail () {
   }
 
   const deleteImage = async (mediaId) => {
+    if (!canEdit) return
     try {
       await productsApi.deleteMedia(id, mediaId)
       await loadDetail()
@@ -477,6 +487,7 @@ export default function ProductDetail () {
   }
 
   const togglePrimaryInViewer = async () => {
+    if (!canEdit) return
     if (!imageMedia.length) return
     const current = imageMedia[viewerIndex]
     if (!current) return
@@ -525,13 +536,23 @@ export default function ProductDetail () {
     }
   }, [viewerOpen])
 
+  if (isNew && !canEdit) {
+    return (
+      <div className="w-full max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl p-6">
+        <h1 className="text-xl font-bold text-slate-800 mb-2">Không có quyền tạo sản phẩm</h1>
+        <p className="text-sm text-slate-600 mb-4">Tài khoản STAFF chỉ có thể xem thông tin sản phẩm.</p>
+        <Link to="/products" className="text-blue-700 text-sm font-semibold hover:underline">Quay lại danh sách sản phẩm</Link>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold text-slate-800">{isNew ? 'Tạo sản phẩm' : 'Chi tiết sản phẩm'}</h1>
         <div className="flex gap-2">
           <Link to="/products" className="border border-slate-300 px-3 py-2 rounded-lg text-xs">Quay lại</Link>
-          <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-semibold" onClick={save}>Lưu sản phẩm</button>
+          {canEdit && <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-semibold" onClick={save}>Lưu sản phẩm</button>}
         </div>
       </div>
 
@@ -552,7 +573,7 @@ export default function ProductDetail () {
             </div>
           </div>
 
-          {isNew && (
+          {isNew && canEdit && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border border-slate-200 p-3 bg-slate-50 rounded-lg">
               <div className="space-y-2"><div className="text-xs text-blue-700 font-semibold">Tạo nhanh loại sản phẩm</div><input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Ví dụ: Sữa rửa mặt" value={quickTypeName} onChange={(e) => setQuickTypeName(e.target.value)} /><button className="border border-slate-300 px-2 py-1 text-xs rounded" onClick={createQuickType}>Tạo loại</button></div>
               <div className="space-y-2"><div className="text-xs text-blue-700 font-semibold">Tạo nhanh thương hiệu</div><input className="w-full bg-white border border-slate-300 p-2 text-xs rounded" placeholder="Ví dụ: CeraVe" value={quickBrandName} onChange={(e) => setQuickBrandName(e.target.value)} /><button className="border border-slate-300 px-2 py-1 text-xs rounded" onClick={createQuickBrand}>Tạo thương hiệu</button></div>
@@ -583,12 +604,12 @@ export default function ProductDetail () {
             <MultiSelectChecklist title="Nhãn" items={meta.tags} values={form.tagIds} onChange={(next) => setForm((p) => ({ ...p, tagIds: next }))} />
           </div>
 
-          {isNew && <VariantEditor draft={newVariant} setDraft={setNewVariant} options={meta.options} optionValues={meta.optionValues} onSubmit={() => {}} submitLabel="Biến thể này sẽ dùng khi tạo sản phẩm" skuPreview={createVariantSkuPreview} />}
+          {isNew && canEdit && <VariantEditor draft={newVariant} setDraft={setNewVariant} options={meta.options} optionValues={meta.optionValues} onSubmit={() => {}} submitLabel="Biến thể này sẽ dùng khi tạo sản phẩm" skuPreview={createVariantSkuPreview} />}
         </div>
 
         <div className="border border-slate-200 p-4 bg-white rounded-xl shadow-sm space-y-3">
           <div className="flex items-center justify-between mb-2"><h2 className="text-sm font-bold text-slate-700">Biến thể ({product?.variants?.length || 0})</h2></div>
-          {!isNew && <VariantEditor draft={addVariantDraft} setDraft={setAddVariantDraft} options={meta.options} optionValues={meta.optionValues} onSubmit={addVariant} submitLabel="Tạo biến thể" skuPreview={addVariantSkuPreview} />}
+          {!isNew && canEdit && <VariantEditor draft={addVariantDraft} setDraft={setAddVariantDraft} options={meta.options} optionValues={meta.optionValues} onSubmit={addVariant} submitLabel="Tạo biến thể" skuPreview={addVariantSkuPreview} />}
 
           <div className="space-y-2 mb-4">
             {(product?.variants || []).map((v) => {
@@ -597,7 +618,7 @@ export default function ProductDetail () {
                 <div key={v.id} className="border border-slate-200 p-2 text-xs rounded">
                   <div className="flex justify-between gap-3">
                     <span className="text-slate-700">{v.sku} | {formatPrice(v.price)} | tồn {v.stockQuantity}</span>
-                    <button className="text-blue-600" onClick={() => variantsApi.setActive(v.id, !v.active).then(loadDetail)}>{v.active ? 'Ngừng bán' : 'Bật bán lại'}</button>
+                    {canEdit && <button className="text-blue-600" onClick={() => variantsApi.setActive(v.id, !v.active).then(loadDetail)}>{v.active ? 'Ngừng bán' : 'Bật bán lại'}</button>}
                   </div>
                   {!!variantPromotions.length && (
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -617,7 +638,7 @@ export default function ProductDetail () {
             {!product?.variants?.length && <div className="text-xs text-slate-500">Chưa có biến thể</div>}
           </div>
 
-          {!isNew && (
+          {!isNew && canEdit && (
             <div className="border border-rose-200 bg-rose-50/40 p-3 rounded-lg space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-700">Khuyến mãi sản phẩm</h2>
@@ -696,6 +717,7 @@ export default function ProductDetail () {
             <button type="button" className="inline-flex items-center rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" onClick={() => fileInputRef.current?.click()}>Chọn ảnh từ máy</button>
             <span className="text-xs text-slate-500">Định dạng khuyến nghị: JPG/PNG</span>
           </div>
+          {!canEdit && <div className="text-xs text-amber-700">Tài khoản STAFF chỉ có quyền xem, không thể tạo/sửa/xóa sản phẩm.</div>}
           <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onUpload(e.target.files?.[0])} className="hidden" />
 
           <div className="space-y-2">
@@ -708,7 +730,7 @@ export default function ProductDetail () {
                     <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
                       <div className="w-full p-2 flex items-center justify-center gap-2 whitespace-nowrap">
                         <button type="button" className="px-2 py-1 rounded bg-white text-slate-700 text-[10px] font-medium" onClick={() => openViewer(idx)}>Xem trước</button>
-                        <button type="button" className="px-2 py-1 rounded bg-red-600 text-white text-[10px] font-medium" onClick={() => deleteImage(m.id)}>Xóa</button>
+                        {canEdit && <button type="button" className="px-2 py-1 rounded bg-red-600 text-white text-[10px] font-medium" onClick={() => deleteImage(m.id)}>Xóa</button>}
                       </div>
                     </div>
                   </div>
@@ -722,8 +744,8 @@ export default function ProductDetail () {
                   <div key={m.id} className="border border-slate-200 rounded-lg p-2 flex items-center justify-between">
                     <span className="text-xs text-slate-600">{m.type}</span>
                     <div className="flex items-center gap-2">
-                      <button type="button" className="text-blue-600 text-xs" onClick={() => productsApi.setPrimaryMedia(id, m.id).then(loadDetail)}>Đặt chính</button>
-                      <button type="button" className="text-red-600 text-xs" onClick={() => productsApi.deleteMedia(id, m.id).then(loadDetail)}>Xóa</button>
+                      {canEdit && <button type="button" className="text-blue-600 text-xs" onClick={() => productsApi.setPrimaryMedia(id, m.id).then(loadDetail)}>Đặt chính</button>}
+                      {canEdit && <button type="button" className="text-red-600 text-xs" onClick={() => productsApi.deleteMedia(id, m.id).then(loadDetail)}>Xóa</button>}
                     </div>
                   </div>
                 ))}
@@ -750,15 +772,17 @@ export default function ProductDetail () {
               <img src={imageMedia[viewerIndex]?.url} alt="preview" className="max-h-[70vh] w-auto object-contain rounded" />
               <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 px-3 py-2 border border-slate-300 rounded bg-white/90 text-sm" onClick={nextImage}>›</button>
             </div>
-            <div className="p-3 border-t border-slate-200 flex justify-end">
-              <button
-                type="button"
-                className={`px-3 py-2 rounded text-xs font-medium ${imageMedia[viewerIndex]?.primary ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-600 text-white'}`}
-                onClick={togglePrimaryInViewer}
-              >
-                {imageMedia[viewerIndex]?.primary ? 'Gỡ đặt chính' : 'Đặt làm ảnh chính'}
-              </button>
-            </div>
+            {canEdit && (
+              <div className="p-3 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  className={`px-3 py-2 rounded text-xs font-medium ${imageMedia[viewerIndex]?.primary ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-600 text-white'}`}
+                  onClick={togglePrimaryInViewer}
+                >
+                  {imageMedia[viewerIndex]?.primary ? 'Gỡ đặt chính' : 'Đặt làm ảnh chính'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

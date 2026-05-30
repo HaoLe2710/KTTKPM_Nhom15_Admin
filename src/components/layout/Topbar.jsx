@@ -11,6 +11,7 @@ const titleMap = {
   '/search-health': 'Sức khỏe catalog',
   '/users': 'Quản lý người dùng',
   '/vouchers': 'Voucher hóa đơn',
+  '/orders': 'Quản lý đơn hàng',
   '/chat': 'Chat khách hàng'
 }
 

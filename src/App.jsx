@@ -15,6 +15,7 @@ import RequireRole from './components/auth/RequireRole'
 import UserManagement from './features/users/UserManagement'
 import CustomerChat from './features/chat/CustomerChat'
 import VoucherManagement from './features/promotions/VoucherManagement'
+import OrderManagement from './features/orders/OrderManagement'
 
 function App () {
   return (
@@ -29,8 +30,6 @@ function App () {
 
               <Route element={<RequireRole roles={['ADMIN']} />}>
                 <Route path="dashboard" element={<Dashboard />} />
-                <Route path="products" element={<ProductList />} />
-                <Route path="products/:id" element={<ProductDetail />} />
                 <Route path="options" element={<OptionsRegistry />} />
                 <Route path="masters" element={<SemanticMasters />} />
                 <Route path="search" element={<SearchMetrics />} />
@@ -41,6 +40,9 @@ function App () {
               </Route>
 
               <Route element={<RequireRole roles={['ADMIN', 'STAFF', 'EMPLOYEE']} />}>
+                <Route path="products" element={<ProductList />} />
+                <Route path="products/:id" element={<ProductDetail />} />
+                <Route path="orders" element={<OrderManagement />} />
                 <Route path="chat" element={<CustomerChat />} />
               </Route>
             </Route>
