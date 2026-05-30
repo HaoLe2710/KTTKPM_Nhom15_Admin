@@ -61,6 +61,16 @@ export const chatApi = {
   })
 }
 
+export const ordersApi = {
+  list: (params) => api.get('/admin/orders', { params }),
+  detail: (orderId) => api.get(`/admin/orders/${orderId}`),
+  setStatus: (orderId, payload) => api.patch(`/admin/orders/${orderId}/status`, payload),
+  confirm: (orderId) => api.patch(`/admin/orders/${orderId}/confirm`),
+  ship: (orderId) => api.patch(`/admin/orders/${orderId}/ship`),
+  complete: (orderId) => api.patch(`/admin/orders/${orderId}/complete`),
+  cancel: (orderId, payload) => api.patch(`/admin/orders/${orderId}/cancel`, payload)
+}
+
 export const productsApi = {
   list: (params) => api.get('/admin/products', { params }),
   publicSearch: (params) => api.get('/products/search', { params }),

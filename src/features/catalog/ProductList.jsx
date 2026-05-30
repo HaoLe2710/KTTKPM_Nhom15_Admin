@@ -3,8 +3,11 @@ import { Link } from 'react-router-dom'
 import { Filter, PlusSquare } from 'lucide-react'
 import { productsApi } from '../../lib/adminCatalogApi'
 import { extractApiError } from '../../lib/errors'
+import { getCurrentRole } from '../../lib/auth'
 
 export default function ProductList () {
+  const role = getCurrentRole()
+  const canEdit = role === 'ADMIN'
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -50,9 +53,11 @@ export default function ProductList () {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Quản lý sản phẩm</h1>
         </div>
-        <Link to="/products/new" className="bg-blue-600 text-white font-semibold text-sm py-2 px-4 rounded-lg flex items-center gap-2">
-          <PlusSquare className="w-4 h-4" /> Tạo sản phẩm
-        </Link>
+        {canEdit && (
+          <Link to="/products/new" className="bg-blue-600 text-white font-semibold text-sm py-2 px-4 rounded-lg flex items-center gap-2">
+            <PlusSquare className="w-4 h-4" /> Tạo sản phẩm
+          </Link>
+        )}
       </div>
 
       <div className="border border-slate-200 bg-white rounded-xl shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -92,7 +97,11 @@ export default function ProductList () {
                   <td className="py-3 px-3 text-slate-700">{p.totalStock}</td>
                   <td className="py-3 px-3 text-slate-700">{p.projectionStaleness}</td>
                   <td className="py-3 px-3">
-                    <button className={`px-2 py-1 text-xs rounded ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`} onClick={() => toggleActive(p.id, p.active)}>
+                    <button
+                      className={`px-2 py-1 text-xs rounded ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'} ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
+                      onClick={() => canEdit && toggleActive(p.id, p.active)}
+                      disabled={!canEdit}
+                    >
                       {p.active ? 'Đang bán' : 'Ngừng bán'}
                     </button>
                   </td>

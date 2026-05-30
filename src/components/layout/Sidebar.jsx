@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { BadgePercent, LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle, ScrollText } from 'lucide-react'
+import { BadgePercent, LayoutDashboard, Package, SlidersHorizontal, Shapes, Search, ActivitySquare, LogOut, MessageCircle, Users, UserCircle, ScrollText, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { clearAuthSession, getCurrentRole } from '../../lib/auth'
 
 const adminItems = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
   { href: '/products', label: 'Quản lý sản phẩm', icon: Package },
+  { href: '/orders', label: 'Quản lý đơn hàng', icon: ShoppingCart },
   { href: '/options', label: 'Tùy chọn biến thể', icon: SlidersHorizontal },
   { href: '/masters', label: 'Danh mục chuẩn', icon: Shapes },
   { href: '/search', label: 'Thống kê tìm kiếm', icon: Search },
@@ -16,6 +17,11 @@ const adminItems = [
 ]
 
 const employeeItems = [{ href: '/chat', label: 'Chat khách hàng', icon: MessageCircle }]
+const sharedItems = [
+  { href: '/products', label: 'Quản lý sản phẩm', icon: Package },
+  { href: '/orders', label: 'Quản lý đơn hàng', icon: ShoppingCart },
+  { href: '/chat', label: 'Chat khách hàng', icon: MessageCircle }
+]
 
 export function Sidebar () {
   const location = useLocation()
@@ -23,7 +29,7 @@ export function Sidebar () {
   const role = getCurrentRole()
   const pathname = location.pathname
 
-  const navItems = role === 'ADMIN' ? [...adminItems, ...employeeItems] : employeeItems
+  const navItems = role === 'ADMIN' ? [...adminItems, ...employeeItems] : sharedItems
 
   const logout = () => {
     clearAuthSession()
