@@ -21,7 +21,7 @@ function buildLoginPayload (identifier, password) {
 export default function Login () {
   const navigate = useNavigate()
   const location = useLocation()
-  const [form, setForm] = useState({ identifier: 'admin.local@kttkpm.dev', password: 'Admin@123' })
+  const [form, setForm] = useState({ identifier: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
