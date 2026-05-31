@@ -62,13 +62,14 @@ export const chatApi = {
 }
 
 export const ordersApi = {
+  normalizeId: (id) => encodeURIComponent(String(id || '').trim().replace(/[^\w-]/g, '')),
   list: (params) => api.get('/admin/orders', { params }),
-  detail: (orderId) => api.get(`/admin/orders/${orderId}`),
-  setStatus: (orderId, payload) => api.patch(`/admin/orders/${orderId}/status`, payload),
-  confirm: (orderId) => api.patch(`/admin/orders/${orderId}/confirm`),
-  ship: (orderId) => api.patch(`/admin/orders/${orderId}/ship`),
-  complete: (orderId) => api.patch(`/admin/orders/${orderId}/complete`),
-  cancel: (orderId, payload) => api.patch(`/admin/orders/${orderId}/cancel`, payload)
+  detail: (orderId) => api.get(`/admin/orders/${ordersApi.normalizeId(orderId)}`),
+  setStatus: (orderId, payload) => api.patch(`/admin/orders/${ordersApi.normalizeId(orderId)}/status`, payload),
+  confirm: (orderId) => api.patch(`/admin/orders/${ordersApi.normalizeId(orderId)}/confirm`),
+  ship: (orderId) => api.patch(`/admin/orders/${ordersApi.normalizeId(orderId)}/ship`),
+  complete: (orderId) => api.patch(`/admin/orders/${ordersApi.normalizeId(orderId)}/complete`),
+  cancel: (orderId, payload) => api.patch(`/admin/orders/${ordersApi.normalizeId(orderId)}/cancel`, payload)
 }
 
 export const productsApi = {

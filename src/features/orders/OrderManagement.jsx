@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ordersApi } from '../../lib/adminCatalogApi'
 import { getCurrentRole } from '../../lib/auth'
 import { extractApiError } from '../../lib/errors'
@@ -11,18 +11,28 @@ function toMoney (v) {
   return Number(v || 0).toLocaleString('vi-VN')
 }
 
+function sanitizeOrderId (raw) {
+  return String(raw || '').trim().replace(/[^\w-]/g, '')
+}
+
 function withServerHint (err, fallback) {
-  const base = extractApiError(err, fallback)
   const status = err?.response?.status
   const beMessage = err?.response?.data?.message || err?.response?.data?.error
-  if (status >= 500) return `${base}${beMessage ? ` | BE: ${beMessage}` : ''}`
-  return base
+  if (status >= 500) {
+    return `Không thể tải thông tin đơn hàng này do sự cố hệ thống.${beMessage ? ` | BE: ${beMessage}` : ''}`
+  }
+  return extractApiError(err, fallback)
 }
 
 export default function OrderManagement () {
+  const navigate = useNavigate()
+  const { id: routeOrderId } = useParams()
+  const normalizedRouteId = sanitizeOrderId(routeOrderId)
+
   const role = getCurrentRole()
   const isAdmin = role === 'ADMIN'
   const isStaff = role === 'STAFF' || role === 'EMPLOYEE'
+
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -33,7 +43,10 @@ export default function OrderManagement () {
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const selected = useMemo(() => items.find((x) => x.id === selectedId), [items, selectedId])
+  const selected = useMemo(
+    () => items.find((x) => sanitizeOrderId(x.id) === sanitizeOrderId(selectedId)),
+    [items, selectedId]
+  )
 
   const load = async (targetPage = page) => {
     try {
@@ -47,40 +60,52 @@ export default function OrderManagement () {
         size: 20,
         sort: filters.sort
       })
-      setItems(res?.content || [])
+      setItems(Array.isArray(res?.content) ? res.content : [])
       setPage(res?.number || 0)
       setTotalPages(res?.totalPages || 1)
     } catch (err) {
       setError(withServerHint(err, 'Không tải được danh sách đơn hàng'))
+      setItems([])
     } finally {
       setLoading(false)
     }
   }
 
   const loadDetail = async (orderId) => {
-    if (!orderId) return
+    const safeOrderId = sanitizeOrderId(orderId)
+    if (!safeOrderId) return
     try {
       setDetailLoading(true)
       setError('')
-      const res = await ordersApi.detail(orderId)
-      setDetail(res)
+      const res = await ordersApi.detail(safeOrderId)
+      setDetail(res || null)
     } catch (err) {
       setError(withServerHint(err, 'Không tải được chi tiết đơn hàng'))
+      setDetail(null)
     } finally {
       setDetailLoading(false)
     }
   }
 
   useEffect(() => { load(0) }, [])
-  useEffect(() => { if (selectedId) loadDetail(selectedId) }, [selectedId])
+  useEffect(() => {
+    if (!normalizedRouteId) return
+    setSelectedId(normalizedRouteId)
+    loadDetail(normalizedRouteId)
+  }, [normalizedRouteId])
+  useEffect(() => {
+    if (!selectedId || selectedId === normalizedRouteId) return
+    loadDetail(selectedId)
+  }, [selectedId])
 
   const runAction = async (fn, fallback) => {
-    if (!selectedId) return
+    const safeOrderId = sanitizeOrderId(selectedId)
+    if (!safeOrderId) return
     try {
       setError('')
-      await fn(selectedId)
+      await fn(safeOrderId)
       await load(page)
-      await loadDetail(selectedId)
+      await loadDetail(safeOrderId)
     } catch (err) {
       setError(withServerHint(err, fallback))
     }
@@ -123,8 +148,16 @@ export default function OrderManagement () {
               {loading && <tr><td colSpan="5" className="p-4 text-slate-500">Đang tải...</td></tr>}
               {!loading && !items.length && <tr><td colSpan="5" className="p-4 text-slate-500">Chưa có đơn hàng</td></tr>}
               {!loading && items.map((row) => (
-                <tr key={row.id} className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer ${selectedId === row.id ? 'bg-blue-50' : ''}`} onClick={() => setSelectedId(row.id)}>
-                  <td className="p-3 font-medium">{row.orderNo || row.id}</td>
+                <tr
+                  key={row.id}
+                  className={`border-b border-slate-100 hover:bg-slate-50 cursor-pointer ${sanitizeOrderId(selectedId) === sanitizeOrderId(row.id) ? 'bg-blue-50' : ''}`}
+                  onClick={() => {
+                    const safeId = sanitizeOrderId(row.id)
+                    setSelectedId(safeId)
+                    navigate(`/orders/${safeId}`)
+                  }}
+                >
+                  <td className="p-3 font-medium">{row.orderNo || row.id || '-'}</td>
                   <td className="p-3">{row.customerName || row.userId || '-'}</td>
                   <td className="p-3">{row.status || '-'}</td>
                   <td className="p-3">{row.paymentStatus || '-'}</td>
@@ -148,16 +181,19 @@ export default function OrderManagement () {
           {detailLoading && <div className="text-xs text-slate-500">Đang tải chi tiết...</div>}
           {!detailLoading && detail && (
             <>
-              <div className="text-xs text-slate-600">Mã đơn: <span className="font-semibold text-slate-800">{detail.orderNo || detail.id}</span></div>
+              <div className="text-xs text-slate-600">Mã đơn: <span className="font-semibold text-slate-800">{detail.orderNo || detail.id || '-'}</span></div>
               <div className="text-xs text-slate-600">Trạng thái: <span className="font-semibold text-slate-800">{detail.status || '-'}</span></div>
               <div className="text-xs text-slate-600">Thanh toán: <span className="font-semibold text-slate-800">{detail.paymentStatus || '-'}</span></div>
               <div className="text-xs text-slate-600">Tổng tiền: <span className="font-semibold text-slate-800">{toMoney(detail.totalAmount)}</span></div>
+              <div className="text-xs text-slate-600">Khách hàng: <span className="font-semibold text-slate-800">{detail.customerName || detail.userName || detail.userId || '-'}</span></div>
+              <div className="text-xs text-slate-600">Số điện thoại: <span className="font-semibold text-slate-800">{detail.phone || detail.receiverPhone || detail.shippingAddress?.phone || '-'}</span></div>
+              <div className="text-xs text-slate-600">Địa chỉ: <span className="font-semibold text-slate-800">{detail.shippingAddress?.fullAddress || detail.shippingAddress?.addressLine || detail.address || '-'}</span></div>
 
               <div className="border border-slate-200 rounded-lg p-2 max-h-44 overflow-auto space-y-1">
                 {(detail.items || []).map((item) => (
-                  <div key={item.id || `${item.productId}-${item.variantId}`} className="text-xs text-slate-700 border-b border-slate-100 pb-1">
-                    <div className="font-medium">{item.productName || item.variantName || item.productId}</div>
-                    <div>SL: {item.quantity} | Giá: {toMoney(item.unitPrice || item.price)}</div>
+                  <div key={item.id || `${item.productId || 'p'}-${item.variantId || 'v'}-${item.productName || 'i'}`} className="text-xs text-slate-700 border-b border-slate-100 pb-1">
+                    <div className="font-medium">{item.productName || item.variantName || item.productId || '-'}</div>
+                    <div>SL: {item.quantity || 0} | Giá: {toMoney(item.unitPrice || item.price)}</div>
                   </div>
                 ))}
                 {!detail.items?.length && <div className="text-xs text-slate-500">Không có item</div>}
