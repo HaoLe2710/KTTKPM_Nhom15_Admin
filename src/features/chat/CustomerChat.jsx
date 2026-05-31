@@ -25,6 +25,10 @@ function roomIdOf (room) {
   return room?.id || room?.roomId || room?.chatRoomId || ''
 }
 
+function customerIdOf (room) {
+  return room?.customerId || room?.userId || ''
+}
+
 function messageIdOf (message, index) {
   return message?.id || message?.messageId || `${message?.sentAt || 'message'}-${index}`
 }
@@ -52,6 +56,25 @@ function messageSenderIdOf (message) {
 
 function messageTimeOf (message) {
   return message?.sentAt || message?.createdAt || message?.timestamp
+}
+
+function timeValueOf (iso) {
+  if (!iso) return 0
+  const value = new Date(iso).getTime()
+  return Number.isNaN(value) ? 0 : value
+}
+
+function isCustomerMessage (message, room) {
+  const senderId = String(messageSenderIdOf(message) || '')
+  const customerId = String(customerIdOf(room) || '')
+  return Boolean(senderId && customerId && senderId === customerId)
+}
+
+function latestCustomerMessageAt (messages, room) {
+  return messages.reduce((latest, message) => {
+    if (!isCustomerMessage(message, room)) return latest
+    return Math.max(latest, timeValueOf(messageTimeOf(message)))
+  }, 0)
 }
 
 function formatPrice (value) {
@@ -158,14 +181,18 @@ export default function CustomerChat () {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
   const [error, setError] = useState('')
   const [searchingProducts, setSearchingProducts] = useState(false)
+  const [roomMessageMeta, setRoomMessageMeta] = useState({})
+  const [seenCustomerMessageAt, setSeenCustomerMessageAt] = useState({})
 
   const messagesWrapRef = useRef(null)
   const activeIdRef = useRef('')
   const session = getAuthSession()
   const currentUserId = String(session?.userId || '')
+  const seenStorageKey = `admin-chat-seen-${currentUserId || 'anonymous'}`
 
   const activeRoom = useMemo(() => rooms.find((room) => roomIdOf(room) === activeId), [rooms, activeId])
   const activeStaffId = staffIdOf(activeRoom)
+  const canReply = Boolean(activeId && activeStaffId && !isRoomClosed(activeRoom))
   const filteredRooms = useMemo(() => {
     const term = query.trim().toLowerCase()
     if (!term) return rooms
@@ -179,6 +206,48 @@ export default function CustomerChat () {
     activeIdRef.current = activeId
   }, [activeId])
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(seenStorageKey)
+      setSeenCustomerMessageAt(stored ? JSON.parse(stored) : {})
+    } catch {
+      setSeenCustomerMessageAt({})
+    }
+  }, [seenStorageKey])
+
+  const markRoomSeen = useCallback((roomId, latestAt) => {
+    if (!roomId || !latestAt) return
+    setSeenCustomerMessageAt((prev) => {
+      if ((prev[roomId] || 0) >= latestAt) return prev
+      const next = { ...prev, [roomId]: latestAt }
+      try {
+        window.localStorage.setItem(seenStorageKey, JSON.stringify(next))
+      } catch {
+        // localStorage can be unavailable in private or restricted browser modes.
+      }
+      return next
+    })
+  }, [seenStorageKey])
+
+  const refreshRoomMessageMeta = useCallback(async (roomList) => {
+    const openRooms = roomList.filter((room) => !isRoomClosed(room))
+    if (!openRooms.length) {
+      setRoomMessageMeta({})
+      return
+    }
+
+    const entries = await Promise.all(openRooms.map(async (room) => {
+      const roomId = roomIdOf(room)
+      try {
+        const roomMessages = asList(await chatApi.roomMessages(roomId, currentUserId || undefined))
+        return [roomId, { latestCustomerAt: latestCustomerMessageAt(roomMessages, room) }]
+      } catch {
+        return [roomId, { latestCustomerAt: 0 }]
+      }
+    }))
+    setRoomMessageMeta(Object.fromEntries(entries))
+  }, [currentUserId])
+
   const loadRooms = useCallback(async ({ silent = false } = {}) => {
     try {
       if (!silent) setLoadingRooms(true)
@@ -187,6 +256,7 @@ export default function CustomerChat () {
       const list = asList(data)
       const selectedId = activeIdRef.current
       setRooms(list)
+      refreshRoomMessageMeta(list)
       setLastUpdatedAt(new Date())
       if (!selectedId && list.length) setActiveId(roomIdOf(list[0]))
       if (selectedId && !list.find((room) => roomIdOf(room) === selectedId)) setActiveId(roomIdOf(list[0]) || '')
@@ -196,7 +266,7 @@ export default function CustomerChat () {
     } finally {
       if (!silent) setLoadingRooms(false)
     }
-  }, [currentUserId])
+  }, [currentUserId, refreshRoomMessageMeta])
 
   const loadMessages = useCallback(async (roomId, { silent = false } = {}) => {
     if (!roomId) {
@@ -260,6 +330,11 @@ export default function CustomerChat () {
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     if (atBottom || messages.length < 3) el.scrollTop = el.scrollHeight
   }, [messages, activeId])
+
+  useEffect(() => {
+    if (!activeRoom || !messages.length) return
+    markRoomSeen(roomIdOf(activeRoom), latestCustomerMessageAt(messages, activeRoom))
+  }, [activeRoom, markRoomSeen, messages])
 
   useEffect(() => () => {
     if (attachmentPreviewUrl) window.URL.revokeObjectURL(attachmentPreviewUrl)
@@ -329,7 +404,7 @@ export default function CustomerChat () {
   }
 
   const send = async () => {
-    if (!activeId || isRoomClosed(activeRoom) || !canSendPayload(messageType, input, attachmentDraft, attachmentFile)) return
+    if (!canReply || !canSendPayload(messageType, input, attachmentDraft, attachmentFile)) return
     let draft = attachmentDraft
     let payload
     const content = input.trim()
@@ -384,11 +459,19 @@ export default function CustomerChat () {
           {loadingRooms ? <div className="p-4 text-sm text-slate-500">Đang tải phòng chat...</div> : filteredRooms.map((room) => {
             const roomId = roomIdOf(room)
             const staffId = staffIdOf(room)
+            const needsPickup = !staffId && !isRoomClosed(room)
+            const latestCustomerAt = roomMessageMeta[roomId]?.latestCustomerAt || 0
+            const hasUnreadCustomerMessage = Boolean(staffId && latestCustomerAt > (seenCustomerMessageAt[roomId] || 0))
+            const attentionClass = needsPickup
+              ? 'bg-amber-50 border-l-4 border-l-amber-500 hover:bg-amber-100'
+              : hasUnreadCustomerMessage
+                ? 'bg-cyan-50 border-l-4 border-l-cyan-500 hover:bg-cyan-100'
+                : 'hover:bg-slate-50'
             return (
-              <button key={roomId} onClick={() => setActiveId(roomId)} className={`w-full text-left p-4 border-b hover:bg-slate-50 ${roomId === activeId ? 'bg-blue-50' : ''}`}>
+              <button key={roomId} onClick={() => setActiveId(roomId)} className={`w-full text-left p-4 border-b ${attentionClass} ${roomId === activeId ? 'bg-blue-50' : ''}`}>
                 <div className="font-medium text-slate-800 flex justify-between items-center gap-2">
                   <span className="truncate">Phòng #{roomId?.slice(0, 8) || 'N/A'}</span>
-                  {isRoomClosed(room) ? <span className="text-[10px] text-red-600 shrink-0">Đã đóng</span> : <span className="text-[10px] text-green-600 shrink-0">Đang mở</span>}
+                  {needsPickup ? <span className="text-[10px] font-semibold text-amber-700 shrink-0">Chưa nhận</span> : hasUnreadCustomerMessage ? <span className="text-[10px] font-semibold text-cyan-700 shrink-0">Tin mới</span> : isRoomClosed(room) ? <span className="text-[10px] text-red-600 shrink-0">Đã đóng</span> : <span className="text-[10px] text-green-600 shrink-0">Đang mở</span>}
                 </div>
                 <div className="text-xs text-slate-500 truncate">Khách: {customerLabelOf(room, customerProfiles)}</div>
                 <div className="text-xs text-slate-500 truncate">Nhân viên: {staffId || 'Chưa nhận'}</div>
@@ -464,8 +547,8 @@ export default function CustomerChat () {
           )}
 
           <div className="flex gap-2">
-            <input className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100" placeholder={activeId ? (isRoomClosed(activeRoom) ? 'Phòng chat đã đóng' : 'Nhập nội dung trả lời khách hàng...') : 'Chọn một phòng chat để trả lời'} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} disabled={!activeId || isRoomClosed(activeRoom) || sending} />
-            <button className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 flex items-center gap-2 hover:bg-blue-700" onClick={send} disabled={!activeId || isRoomClosed(activeRoom) || !canSendPayload(messageType, input, attachmentDraft, attachmentFile) || sending}>
+            <input className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100" placeholder={activeId ? (isRoomClosed(activeRoom) ? 'Phòng chat đã đóng' : (activeStaffId ? 'Nhập nội dung trả lời khách hàng...' : 'Nhấn Nhận phòng để trả lời khách hàng...')) : 'Chọn một phòng chat để trả lời'} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && send()} disabled={!canReply || sending} />
+            <button className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 flex items-center gap-2 hover:bg-blue-700" onClick={send} disabled={!canReply || !canSendPayload(messageType, input, attachmentDraft, attachmentFile) || sending}>
               <Send className="w-4 h-4" />
               {sending ? 'Đang gửi' : 'Gửi'}
             </button>
