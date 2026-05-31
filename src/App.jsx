@@ -16,6 +16,7 @@ import UserManagement from './features/users/UserManagement'
 import CustomerChat from './features/chat/CustomerChat'
 import VoucherManagement from './features/promotions/VoucherManagement'
 import OrderManagement from './features/orders/OrderManagement'
+import AppErrorBoundary from './components/common/AppErrorBoundary'
 
 function App () {
   return (
@@ -42,7 +43,8 @@ function App () {
               <Route element={<RequireRole roles={['ADMIN', 'STAFF', 'EMPLOYEE']} />}>
                 <Route path="products" element={<ProductList />} />
                 <Route path="products/:id" element={<ProductDetail />} />
-                <Route path="orders" element={<OrderManagement />} />
+                <Route path="orders" element={<AppErrorBoundary><OrderManagement /></AppErrorBoundary>} />
+                <Route path="orders/:id" element={<AppErrorBoundary><OrderManagement /></AppErrorBoundary>} />
                 <Route path="chat" element={<CustomerChat />} />
               </Route>
             </Route>
